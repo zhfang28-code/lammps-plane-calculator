@@ -159,8 +159,12 @@
             <div class="metric"><span>完整平面方程</span><strong id="equationOut">—</strong></div>
             <div class="metric"><span id="sideLabel">所选空间判据</span><strong id="sideOut">n·(X−A) ≥ 0</strong></div>
           </div>
-          <h3>这组坐标如何得到平面</h3>
-          <div id="planeExplanation" class="explanation" aria-live="polite">输入坐标后自动生成计算说明。</div>
+          <details class="command-panel explanation-panel">
+            <summary>这组坐标如何得到平面</summary>
+            <div class="command-panel-body">
+              <div id="planeExplanation" class="explanation" aria-live="polite">输入坐标后自动生成计算说明。</div>
+            </div>
+          </details>
           <details class="command-panel" open>
             <summary>可复制的 LAMMPS 平面命令</summary>
             <div class="command-panel-body">
@@ -295,8 +299,12 @@
             <div class="metric"><span>几何检查</span><strong id="hexaGeometryOut">—</strong></div>
             <div class="metric"><span>内部选取方法</span><strong>六个面的内侧区域交集</strong></div>
           </div>
-          <h3>如何从 A、B、C、D 与厚度得到六面体</h3>
-          <div id="hexaExplanation" class="explanation" aria-live="polite">输入底面四点与厚度后自动生成 E、F、G、H，并检查共面性、凸性和闭合关系。</div>
+          <details class="command-panel explanation-panel">
+            <summary>如何从 A、B、C、D 与厚度得到六面体</summary>
+            <div class="command-panel-body">
+              <div id="hexaExplanation" class="explanation" aria-live="polite">输入底面四点与厚度后自动生成 E、F、G、H，并检查共面性、凸性和闭合关系。</div>
+            </div>
+          </details>
           <details class="command-panel" open>
             <summary>可复制的 LAMMPS 六面体命令</summary>
             <div class="command-panel-body">
@@ -500,8 +508,12 @@
             <svg id="layerDiagram" viewBox="0 0 720 360" role="img" aria-label="倾斜原子层与垂直裁剪平面的动态截面图"></svg>
           </div>
           <div id="layerDiagramCaption" class="diagram-caption">参数有效后自动绘制。</div>
-          <h3>每一层的选择范围与 Z 坐标</h3>
-          <div id="layerExplanation" class="explanation" aria-live="polite">输入三点与各层厚度后自动生成区间说明。</div>
+          <details class="command-panel explanation-panel">
+            <summary>每一层的选择范围与 Z 坐标</summary>
+            <div class="command-panel-body">
+              <div id="layerExplanation" class="explanation" aria-live="polite">输入三点与各层厚度后自动生成区间说明。</div>
+            </div>
+          </details>
           <details class="command-panel" open>
             <summary>可复制的 LAMMPS 原子层命令</summary>
             <div class="command-panel-body">
@@ -556,8 +568,12 @@
               <div class="metric"><span>对称拆分后的全部上层 XYZ 位移</span><strong id="upperMoveOut">—</strong></div>
               <div class="metric"><span>对称拆分后的全部下层 XYZ 位移</span><strong id="lowerMoveOut">—</strong></div>
             </div>
-            <h3>总相对位移如何拆分为 upper / lower</h3>
-            <div id="displaceExplanation" class="explanation" aria-live="polite">输入总相对位移后自动投影到 X、Y、Z，并按 ±½ 对称拆分。</div>
+            <details class="command-panel explanation-panel">
+              <summary>总相对位移如何拆分为 upper / lower</summary>
+              <div class="command-panel-body">
+                <div id="displaceExplanation" class="explanation" aria-live="polite">输入总相对位移后自动投影到 X、Y、Z，并按 ±½ 对称拆分。</div>
+              </div>
+            </details>
             <details class="command-panel" open>
               <summary>可复制的 LAMMPS 位移命令</summary>
               <div class="command-panel-body">
