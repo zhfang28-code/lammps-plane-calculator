@@ -153,7 +153,6 @@
     .metric span { display: block; color: var(--muted); font-size: 12px; margin-bottom: 5px; }
     .metric strong { font-family: Consolas, monospace; font-size: 13px; overflow-wrap: anywhere; }
     pre {
-      min-height: 215px;
       margin: 0;
       padding: 15px;
       overflow: auto;
@@ -162,6 +161,18 @@
       color: var(--code-ink);
       font: 13px/1.62 Consolas, "Cascadia Mono", monospace;
       white-space: pre-wrap;
+    }
+    .explanation {
+      margin: 0 0 12px;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--accent);
+      border-radius: 10px;
+      background: #f8fafb;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.65;
+      white-space: pre-line;
     }
     .message {
       display: none;
@@ -248,6 +259,15 @@
             <input id="qz" type="number" step="any" value="0">
           </div>
 
+          <div class="field">
+            <label for="planeSide">命令对应的半空间方向</label>
+            <select id="planeSide">
+              <option value="in">法向正侧（side in：n·(X−A) ≥ 0）</option>
+              <option value="out">法向反侧（side out：n·(X−A) ≤ 0）</option>
+            </select>
+            <p class="help">LAMMPS 将优先选取该侧，Atomsk 将删除同一侧。启用内部点 Q 时，Q 所在侧定义为 side in。</p>
+          </div>
+
           <div class="row">
             <div class="field">
               <label for="planePrecision">输出小数位</label>
@@ -266,7 +286,7 @@
               <input id="atomskInput" value="input.cfg">
             </div>
             <div class="field">
-              <label for="atomskOutput">删除内侧后的输出文件</label>
+              <label for="atomskOutput">删除所选侧后的输出文件</label>
               <input id="atomskOutput" value="inside_deleted.cfg">
             </div>
           </div>
@@ -287,19 +307,23 @@
             <div class="metric"><span>单位法向量 n</span><strong id="normalOut">—</strong></div>
             <div class="metric"><span>平面常数 D</span><strong id="constantOut">—</strong></div>
             <div class="metric"><span>平面方程</span><strong id="equationOut">—</strong></div>
-            <div class="metric"><span>side in 判据</span><strong id="sideOut">n·(X−P) ≥ 0</strong></div>
+            <div class="metric"><span id="sideLabel">所选空间判据</span><strong id="sideOut">n·(X−A) ≥ 0</strong></div>
           </div>
+          <h3>计算说明</h3>
+          <div id="planeExplanation" class="explanation" aria-live="polite">输入坐标后自动生成计算说明。</div>
+          <h3>LAMMPS 命令</h3>
           <pre id="planeCode">输入坐标后点击“计算并生成命令”。</pre>
           <div class="actions">
-            <button class="secondary" data-copy="planeCode">复制全部命令</button>
+            <button class="secondary" data-copy="planeCode" data-message="planeMessage">复制 LAMMPS 命令</button>
           </div>
-          <h3>Atomsk：删除 LAMMPS side in 一侧</h3>
+          <h3 id="atomskHeading">Atomsk 命令：删除法向正侧（side in）</h3>
+          <div id="atomskExplanation" class="explanation" aria-live="polite">输入坐标后自动生成 Atomsk 处理说明。</div>
           <pre id="atomskCode">输入坐标后自动生成 Atomsk 命令。</pre>
           <div class="actions">
-            <button class="secondary" data-copy="atomskCode">复制 Atomsk 命令</button>
+            <button class="secondary" data-copy="atomskCode" data-message="planeMessage">复制 Atomsk 命令</button>
           </div>
-          <p class="help">Atomsk 的 cut 不直接接受任意笛卡尔法向量，因此命令会先把平面平移到原点并旋转到 XY 平面，删除其 +Z 一侧，再执行逆旋转和平移。默认保留距平面 0.001 Å 内的原子，以免舍入误差误删平面原子。</p>
-          <p class="help">法向量已归一化，LAMMPS 不要求单位法向量，但归一化便于检查。若选错一侧，可交换 side in/out，或将法向量整体乘以 −1。</p>
+          <p class="help">Atomsk 的 cut 不直接接受任意笛卡尔法向量，因此命令会先把平面平移到原点并旋转到 XY 平面，根据所选方向删除 +Z 或 −Z 一侧，再执行逆旋转和平移。</p>
+          <p class="help">法向量已归一化，LAMMPS 不要求单位法向量，但归一化便于检查。可通过“命令对应的半空间方向”切换两侧，相关命令会同步更新。</p>
         </div>
       </div>
     </section>
@@ -342,9 +366,12 @@
             <div class="metric"><span>体积</span><strong id="volumeOut">—</strong></div>
             <div class="metric"><span>内部选取方式</span><strong>4 个 inward half-space 的交集</strong></div>
           </div>
+          <h3>计算说明</h3>
+          <div id="tetraExplanation" class="explanation" aria-live="polite">输入四个顶点后自动生成计算说明。</div>
+          <h3>LAMMPS 命令</h3>
           <pre id="tetraCode">输入四个顶点后点击“计算四个面并生成命令”。</pre>
           <div class="actions">
-            <button class="secondary" data-copy="tetraCode">复制全部命令</button>
+            <button class="secondary" data-copy="tetraCode" data-message="tetraMessage">复制 LAMMPS 命令</button>
           </div>
           <p class="help">程序自动让每个面的法向量指向对面的顶点，因此四个 face 均可使用 side in，并通过 intersect 得到四面体内部。</p>
         </div>
@@ -424,10 +451,12 @@
       clearMessage("planeMessage");
       const A=readPoint("a"), B=readPoint("b"), C=readPoint("c");
       const id=$("planeId").value.trim(), precision=Number($("planePrecision").value), units=$("planeUnits").value;
+      const selectedSide=$("planeSide").value;
       const atomskInput=$("atomskInput").value.trim(), atomskOutput=$("atomskOutput").value.trim();
       const atomskTolerance=Number($("atomskTolerance").value);
       if (![A,B,C].every(validPoint)) return showMessage("planeMessage","请完整输入所有坐标值。");
       if (!validId(id)) return showMessage("planeMessage","Region ID 只能包含英文字母、数字和下划线，且不能以数字开头。");
+      if (!["in","out"].includes(selectedSide)) return showMessage("planeMessage","请选择有效的半空间方向。");
       if (!atomskInput || !atomskOutput) return showMessage("planeMessage","请填写 Atomsk 输入文件和输出文件名。");
       if (!Number.isFinite(atomskTolerance) || atomskTolerance<0) return showMessage("planeMessage","Atomsk 平面容差必须是大于或等于 0 的数值。");
       const u=sub(B,A);
@@ -440,28 +469,37 @@
         const Q=readPoint("q");
         if (!validPoint(Q)) return showMessage("planeMessage","请完整输入内部测试点 Q。");
         const s=dot(n,sub(Q,A));
-        if (s<0) { n=scale(n,-1); orientationNote="# 法向量已自动翻转，使测试点 Q 位于 side in\n"; }
-        else if (Math.abs(s)<1e-10) orientationNote="# 注意：测试点 Q 位于平面上，不能判定哪一侧为内部\n";
+        if (s<0) { n=scale(n,-1); orientationNote="法向量已自动翻转，使测试点 Q 位于 side in。"; }
+        else if (Math.abs(s)<1e-10) orientationNote="注意：测试点 Q 位于平面上，不能判定哪一侧为内部。";
+        else orientationNote="测试点 Q 位于 side in，法向量方向无需翻转。";
       }
       const D=-dot(n,A);
       $("normalOut").textContent=vectorText(n,precision);
       $("constantOut").textContent=clean(D,precision);
       $("equationOut").textContent=`${clean(n[0],precision)}x + ${clean(n[1],precision)}y + ${clean(n[2],precision)}z + ${clean(D,precision)} = 0`;
-      const insideId=id+"_in", outsideId=id+"_out";
+      const oppositeSide=selectedSide==="in" ? "out" : "in";
+      const selectedRegionId=`${id}_${selectedSide}`, oppositeRegionId=`${id}_${oppositeSide}`;
+      const selectedIsIn=selectedSide==="in";
+      const sideName=selectedIsIn ? "法向正侧" : "法向反侧";
+      const sideRelation=selectedIsIn ? "≥" : "≤";
+      $("sideLabel").textContent=`所选空间（side ${selectedSide}）`;
+      $("sideOut").textContent=`n·(X−A) ${sideRelation} 0`;
       const method = mode==="three"
-        ? `# 由平面上的三点 A、B、C 求得\n# A=${vectorText(A,precision)}  B=${vectorText(B,precision)}  C=${vectorText(C,precision)}`
-        : `# 由边界线 A→B 与延伸方向 E 求得\n# A=${vectorText(A,precision)}  B=${vectorText(B,precision)}  E=${vectorText(C,precision)}`;
-      $("planeCode").textContent =
+        ? `求解方式：由平面上的三点 A、B、C 确定。\n坐标：A=${vectorText(A,precision)}，B=${vectorText(B,precision)}，C=${vectorText(C,precision)}。`
+        : `求解方式：由边界线 A→B 与延伸方向 E 确定。\n坐标：A=${vectorText(A,precision)}，B=${vectorText(B,precision)}，E=${vectorText(C,precision)}。`;
+      $("planeExplanation").textContent =
 `${method}
-# 单位法向量 n=${vectorText(n,precision)}
-# 平面方程: n·(X-A)=0；side in 满足 n·(X-A) >= 0
-${orientationNote}${regionPlane(insideId,A,n,"in",units,precision)}
-group ${id}_atoms region ${insideId}
+单位法向量：n=${vectorText(n,precision)}。
+平面方程：n·(X−A)=0。
+${orientationNote ? orientationNote+"\n" : ""}所选半空间：${sideName}（side ${selectedSide}），满足 n·(X−A) ${sideRelation} 0。
+主原子组为 ${id}_atoms；互补一侧为 ${id}_opposite。`;
+      $("planeCode").textContent =
+`${regionPlane(selectedRegionId,A,n,selectedSide,units,precision)}
+group ${id}_atoms region ${selectedRegionId}
 
-${regionPlane(outsideId,A,n,"out",units,precision)}
-group ${id}_outside region ${outsideId}
+${regionPlane(oppositeRegionId,A,n,oppositeSide,units,precision)}
+group ${id}_opposite region ${oppositeRegionId}
 
-# 可选：输出检查
 variable n_${id} equal count(${id}_atoms)
 run 0
 print "Selected atoms = \${n_${id}}"
@@ -473,12 +511,17 @@ write_dump ${id}_atoms custom ${id}_atoms.lammpstrj id type x y z`;
       const angle=clean(rotation.angle,precision);
       const inverseAngle=clean(-rotation.angle,precision);
       const cutDistance=clean(atomskTolerance,precision);
+      const atomskCutDirection=selectedIsIn ? "above" : "below";
+      const atomskCutDistance=clean(selectedIsIn ? atomskTolerance : -atomskTolerance,precision);
       const rotateForward=rotation.angle<EPS ? "" : ` -rotate ${rotationAxis} ${angle}`;
       const rotateBackward=rotation.angle<EPS ? "" : ` -rotate ${rotationAxis} ${inverseAngle}`;
+      $("atomskHeading").textContent=`Atomsk 命令：删除${sideName}（side ${selectedSide}）`;
+      $("atomskExplanation").textContent =
+`删除与 LAMMPS side ${selectedSide} 对应的${sideName}，即 n·(X−A) ${sideRelation} 0 的半空间。
+距平面 ${cutDistance} Å 内的原子将保留，避免旋转和舍入误差造成误删。
+处理流程：平移到原点 → 将法向量旋转到 +Z → 从 ${atomskCutDirection} 方向切割 → 逆旋转并平移回原位。`;
       $("atomskCode").textContent =
-`# 删除与 LAMMPS side in 对应的半空间：n·(X-A) > ${cutDistance} Å
-# 距平面 ${cutDistance} Å 内的原子保留，避免旋转舍入误差造成误删
-atomsk ${atomskArg(atomskInput)} -shift ${shiftToOrigin}${rotateForward} -cut above ${cutDistance} z${rotateBackward} -shift ${shiftBack} ${atomskArg(atomskOutput)}`;
+`atomsk ${atomskArg(atomskInput)} -shift ${shiftToOrigin}${rotateForward} -cut ${atomskCutDirection} ${atomskCutDistance} z${rotateBackward} -shift ${shiftBack} ${atomskArg(atomskOutput)}`;
     });
 
     $("planeExample").addEventListener("click", () => {
@@ -515,19 +558,17 @@ atomsk ${atomskArg(atomskInput)} -shift ${shiftToOrigin}${rotateForward} -cut ab
       const faceIds=faces.map((_,i)=>`${id}_f${i+1}`);
       const lines=faces.map((f,i)=>regionPlane(faceIds[i],f.point,f.n,"in",units,precision));
       $("volumeOut").textContent=`${clean(Math.abs(signed6)/6,precision)} Å³`;
+      $("tetraExplanation").textContent =
+`顶点：A=${vectorText(A,precision)}，B=${vectorText(B,precision)}，C=${vectorText(C,precision)}，D=${vectorText(Dp,precision)}。
+四面体体积：${clean(Math.abs(signed6)/6,precision)} Å³。
+四个面的法向量均已自动指向对面顶点，因此每个面使用 side in；四个半空间的交集为四面体内部。`;
       $("tetraCode").textContent =
-`# 顶点 A=${vectorText(A,precision)}
-# 顶点 B=${vectorText(B,precision)}
-# 顶点 C=${vectorText(C,precision)}
-# 顶点 D=${vectorText(Dp,precision)}
-# 各面的法向量均已自动指向四面体内部
-${lines.join("\n")}
+`${lines.join("\n")}
 
 region ${id} intersect 4 ${faceIds.join(" ")}
 group ${id}_atoms region ${id}
 group ${id}_outside subtract all ${id}_atoms
 
-# 可选：输出检查
 variable n_${id} equal count(${id}_atoms)
 run 0
 print "Atoms inside tetrahedron = \${n_${id}}"
@@ -568,15 +609,15 @@ write_dump ${id}_atoms custom ${id}_atoms.lammpstrj id type x y z`;
 
     document.querySelectorAll("[data-copy]").forEach(button => {
       button.addEventListener("click", async () => {
-        const text=$(button.dataset.copy).textContent;
+        const text=$(button.dataset.copy).textContent.trim();
         try {
           await navigator.clipboard.writeText(text);
-          const old=button.textContent; button.textContent="已复制";
+          const old=button.textContent; button.textContent="已复制命令";
           setTimeout(()=>button.textContent=old,1200);
         } catch {
           const range=document.createRange(); range.selectNodeContents($(button.dataset.copy));
           const selection=window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
-          showMessage(button.dataset.copy==="planeCode"?"planeMessage":"tetraMessage","浏览器阻止自动复制，命令文本已选中，请按 Ctrl+C。","warn");
+          showMessage(button.dataset.message,"浏览器阻止自动复制，命令文本已选中，请按 Ctrl+C。","warn");
         }
       });
     });
@@ -585,7 +626,7 @@ write_dump ${id}_atoms custom ${id}_atoms.lammpstrj id type x y z`;
     // commands from being copied after coordinates or the Region ID change.
     [
       "planeMode","planeId","ax","ay","az","bx","by","bz","cx","cy","cz",
-      "useInside","qx","qy","qz","planePrecision","planeUnits","atomskInput","atomskOutput","atomskTolerance"
+      "useInside","qx","qy","qz","planeSide","planePrecision","planeUnits","atomskInput","atomskOutput","atomskTolerance"
     ].forEach(id => {
       $(id).addEventListener("input", () => $("calcPlane").click());
       $(id).addEventListener("change", () => $("calcPlane").click());

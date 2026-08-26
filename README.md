@@ -6,7 +6,8 @@
 
 - 根据平面上三个原子的笛卡尔坐标计算单位法向量、平面常数和平面方程
 - 生成可直接使用的 LAMMPS `region plane`、原子筛选与导出命令
-- 生成对应的 Atomsk 平面切割命令
+- 可选择法向正侧（`side in`）或反侧（`side out`），LAMMPS 与 Atomsk 命令同步更新
+- 生成对应的 Atomsk 平面切割命令，并将计算说明与可复制命令分开显示
 - 根据四个顶点生成不规则四面体区域及其四个平面
 - 支持批量粘贴坐标
 
@@ -15,4 +16,3 @@
 打开仓库中的 [`index.html`](./index.html)，或者访问本仓库启用 GitHub Pages 后生成的网页地址。
 
 原始本地文件名：`LAMMPS平面与四面体区域计算器.html`。为便于 GitHub Pages 识别网页入口，上传时命名为 `index.html`。
-
