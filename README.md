@@ -25,7 +25,7 @@
 - 可用一条垂直于倾斜面的平面按 `m·X ≥ K` 或 `m·X < K` 裁剪所有原子层
 - 动态绘制上下层、中心面、裁剪界面与保留方向，并自动列出各层在指定 `(X,Y)` 处的 Z 坐标边界
 - 生成各层 `region plane` / `intersect`、上下层 `group union` 及其余原子 `group subtract` 命令
-- 将倾斜面内两个互相垂直方向的位移投影到 X、Y、Z，生成对称的 `displace_atoms` 命令
+- 将输入的 upper–lower 总相对位移投影到 X、Y、Z，并按 `Δupper=+Δrel/2`、`Δlower=−Δrel/2` 对称拆分后生成 `displace_atoms` 命令
 - 平面、六面体和倾斜原子层各自带有独立的 OVITO 坐标批量粘贴入口
 - 主要参数直接展示，LAMMPS 命名、精度和文件选项集中在可折叠的高级设置中
 - 所有 LAMMPS 与 Atomsk 命令输出均可展开或收起，复制按钮只复制命令正文

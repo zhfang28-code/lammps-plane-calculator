@@ -720,23 +720,28 @@ function calculateDisplacement() {
     const paperDirection=normalized(cross(n,tangent));
     const alongDistance=Number($("alongMoveDistance").value);
     const paperDistance=Number($("paperMoveDistance").value);
-    if (!Number.isFinite(alongDistance) || !Number.isFinite(paperDistance)) throw new Error("两个位移距离都必须是有效数值。");
-    const upperMove=add(scale(tangent,alongDistance),scale(paperDirection,paperDistance));
-    const lowerMove=scale(upperMove,-1);
+    if (!Number.isFinite(alongDistance) || !Number.isFinite(paperDistance)) throw new Error("两个总相对位移分量都必须是有效数值。");
+    const relativeMove=add(scale(tangent,alongDistance),scale(paperDirection,paperDistance));
+    const upperMove=scale(relativeMove,0.5);
+    const lowerMove=scale(relativeMove,-0.5);
 
     $("tangentOut").textContent=vectorText(tangent,precision);
     $("paperDirectionOut").textContent=vectorText(paperDirection,precision);
+    $("relativeMoveOut").textContent=vectorText(relativeMove,precision);
     $("upperMoveOut").textContent=vectorText(upperMove,precision);
     $("lowerMoveOut").textContent=vectorText(lowerMove,precision);
     $("displaceExplanation").textContent =
 `${sourceName} 投影到中心倾斜面并归一化后，得到第一个面内方向 t=${vectorText(tangent,precision)}。
 计算 p=n×t，得到同样位于倾斜面内、且与 t 垂直的横向方向 p=${vectorText(paperDirection,precision)}。
-全部上层位移：Δ=${clean(alongDistance,precision)}t + ${clean(paperDistance,precision)}p = ${vectorText(upperMove,precision)} Å。
-全部下层使用反向位移 −Δ=${vectorText(lowerMove,precision)} Å；位移总长度为 ${clean(norm(upperMove),precision)} Å。`;
+输入的总相对位移：Δrel=${clean(alongDistance,precision)}t + ${clean(paperDistance,precision)}p = ${vectorText(relativeMove,precision)} Å。
+对称拆分后，全部上层位移 Δupper=+Δrel/2=${vectorText(upperMove,precision)} Å，全部下层位移 Δlower=−Δrel/2=${vectorText(lowerMove,precision)} Å。
+校验：Δupper−Δlower=Δrel；两层的相对位移总长度为 ${clean(norm(relativeMove),precision)} Å。`;
     $("displaceCode").textContent =
 `displace_atoms ${upperGroup} move ${upperMove.map(v=>clean(v,precision)).join(" ")} units box
 displace_atoms ${lowerGroup} move ${lowerMove.map(v=>clean(v,precision)).join(" ")} units box`;
   } catch(e) {
+    ["tangentOut","paperDirectionOut","relativeMoveOut","upperMoveOut","lowerMoveOut"].forEach(id => $(id).textContent="—");
+    $("displaceExplanation").textContent="请修正输入参数后重新计算。";
     $("displaceCode").textContent="请修正输入参数后重新计算。";
     showMessage("displaceMessage",e.message);
   }
@@ -792,7 +797,7 @@ $("layerExample").addEventListener("click", () => {
   updateLayerLimitControls();
   $("moveDirectionSource").value="ab";
   $("customMoveDirection").classList.add("hidden");
-  $("alongMoveDistance").value=0.2768; $("paperMoveDistance").value=0;
+  $("alongMoveDistance").value=0.5536; $("paperMoveDistance").value=0;
   syncLayerCalculations();
 });
 

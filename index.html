@@ -516,8 +516,8 @@
       </div>
 
       <div id="displacementCard" class="card paste-card side-nav-target">
-        <h2>沿倾斜面的位移与 XYZ 分量</h2>
-        <p class="help form-intro">输入倾斜面内的两个方向分量，自动换算成可直接用于 LAMMPS 的 X、Y、Z 位移。</p>
+        <h2>上下原子层的总相对位移与 XYZ 分量</h2>
+        <p class="help form-intro">输入 upper 相对于 lower 的两个面内总相对位移分量。程序将总相对位移对称拆分为上层 +½、下层 −½，并换算成可直接用于 LAMMPS 的 X、Y、Z 位移。</p>
         <div class="displacement-layout">
           <div>
             <div class="field">
@@ -534,16 +534,16 @@
             </div>
             <div class="row">
               <div class="field">
-                <label for="alongMoveDistance">沿第一个方向的距离（Å）</label>
-                <input id="alongMoveDistance" type="number" step="any" value="0.2768">
+                <label for="alongMoveDistance">沿第一方向的总相对位移（upper 相对 lower，Å）</label>
+                <input id="alongMoveDistance" type="number" step="any" value="0.5536">
               </div>
               <div class="field">
-                <label for="paperMoveDistance">面内横向距离（垂直于第一个方向，Å）</label>
+                <label for="paperMoveDistance">沿第二方向的总相对位移（通常垂直纸面，Å）</label>
                 <input id="paperMoveDistance" type="number" step="any" value="0">
               </div>
             </div>
-            <p class="help">第二个方向也位于倾斜面内，并与第一个方向垂直。两个距离都可以输入正数或负数。</p>
-            <p class="help">默认对称移动：全部上层移动 +Δ，全部下层移动 −Δ。</p>
+            <p class="help">第二个方向 p=n×t 也位于倾斜面内，并与第一方向垂直；在常见侧视图中它对应垂直纸面的方向。两个总相对位移分量都可以输入正数或负数。</p>
+            <p class="help">对称拆分规则：Δupper=+Δrel/2，Δlower=−Δrel/2，因此 Δupper−Δlower=Δrel。</p>
             <div id="displaceMessage" class="message error"></div>
             <div class="actions"><button class="primary" id="calcDisplacement">计算并生成位移命令</button></div>
           </div>
@@ -552,11 +552,12 @@
             <div class="result-grid">
               <div class="metric"><span>第一个面内单位方向 t</span><strong id="tangentOut">—</strong></div>
               <div class="metric"><span>与 t 垂直的面内方向 p</span><strong id="paperDirectionOut">—</strong></div>
-              <div class="metric"><span>全部上层的 XYZ 位移</span><strong id="upperMoveOut">—</strong></div>
-              <div class="metric"><span>全部下层的 XYZ 位移</span><strong id="lowerMoveOut">—</strong></div>
+              <div class="metric relative-displacement"><span>upper 相对于 lower 的总 XYZ 相对位移 Δrel</span><strong id="relativeMoveOut">—</strong></div>
+              <div class="metric"><span>对称拆分后的全部上层 XYZ 位移</span><strong id="upperMoveOut">—</strong></div>
+              <div class="metric"><span>对称拆分后的全部下层 XYZ 位移</span><strong id="lowerMoveOut">—</strong></div>
             </div>
-            <h3>两个面内距离如何换算为 XYZ</h3>
-            <div id="displaceExplanation" class="explanation" aria-live="polite">输入位移距离后自动投影到 X、Y、Z。</div>
+            <h3>总相对位移如何拆分为 upper / lower</h3>
+            <div id="displaceExplanation" class="explanation" aria-live="polite">输入总相对位移后自动投影到 X、Y、Z，并按 ±½ 对称拆分。</div>
             <details class="command-panel" open>
               <summary>可复制的 LAMMPS 位移命令</summary>
               <div class="command-panel-body">

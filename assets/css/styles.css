@@ -391,6 +391,7 @@ button {
   gap: 10px;
   margin-bottom: 12px;
 }
+.result-grid .relative-displacement { grid-column: 1 / -1; }
 .metric {
   padding: 11px 12px;
   border: 1px solid var(--line);
