@@ -394,6 +394,7 @@ button:disabled { opacity: .52; cursor: not-allowed; }
 }
 .result-grid .relative-displacement { grid-column: 1 / -1; }
 .result-grid .layer-calibration-metric { grid-column: 1 / -1; }
+.result-grid .layer-position-metric { grid-column: 1 / -1; }
 .metric {
   padding: 11px 12px;
   border: 1px solid var(--line);
@@ -552,6 +553,13 @@ details.command-panel.explanation-panel > summary { color: var(--text); font-siz
   grid-template-columns: minmax(0, 1fr);
   gap: 10px;
 }
+.midplane-atom-grid {
+  display: grid;
+  gap: 10px;
+}
+.midplane-result-grid { margin-top: 12px; }
+.midplane-result-grid .midplane-distance-metric { grid-column: 1 / -1; }
+.midplane-coordinate-entry { padding: 9px; }
 .calibration-point-card {
   min-width: 0;
   padding: 11px;

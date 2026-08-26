@@ -333,22 +333,23 @@
     <section id="layers" class="panel">
       <nav class="section-sidebar" aria-label="倾斜原子层与位移步骤导航">
         <span class="section-sidebar-title">原子层步骤</span>
-        <button class="section-side-button active" type="button" data-section-target="layerPlaneSettings" aria-controls="layerPlaneSettings" aria-current="step"><span>01</span>中心倾斜面</button>
-        <button class="section-side-button" type="button" data-section-target="layerStackSettings" aria-controls="layerStackSettings"><span>02</span>层数厚度</button>
-        <button class="section-side-button" type="button" data-section-target="layerCalibrationSettings" aria-controls="layerCalibrationSettings"><span>03</span>参考原子</button>
-        <button class="section-side-button" type="button" data-section-target="layerBoundarySettings" aria-controls="layerBoundarySettings"><span>04</span>横向裁剪</button>
-        <button class="section-side-button" type="button" data-section-target="layerAdvanced" aria-controls="layerAdvanced"><span>05</span>输出设置</button>
-        <button class="section-side-button" type="button" data-section-target="layerResultCard" aria-controls="layerResultCard"><span>06</span>原子层结果</button>
-        <button class="section-side-button" type="button" data-section-target="displacementCard" aria-controls="displacementCard"><span>07</span>位移投影</button>
+        <button class="section-side-button active" type="button" data-section-target="layerPlaneSettings" aria-controls="layerPlaneSettings" aria-current="step"><span>01</span>基础平面</button>
+        <button class="section-side-button" type="button" data-section-target="layerMidplaneSettings" aria-controls="layerMidplaneSettings"><span>02</span>中间界面</button>
+        <button class="section-side-button" type="button" data-section-target="layerStackSettings" aria-controls="layerStackSettings"><span>03</span>层数厚度</button>
+        <button class="section-side-button" type="button" data-section-target="layerCalibrationSettings" aria-controls="layerCalibrationSettings"><span>04</span>参考原子</button>
+        <button class="section-side-button" type="button" data-section-target="layerBoundarySettings" aria-controls="layerBoundarySettings"><span>05</span>横向裁剪</button>
+        <button class="section-side-button" type="button" data-section-target="layerAdvanced" aria-controls="layerAdvanced"><span>06</span>输出设置</button>
+        <button class="section-side-button" type="button" data-section-target="layerResultCard" aria-controls="layerResultCard"><span>07</span>原子层结果</button>
+        <button class="section-side-button" type="button" data-section-target="displacementCard" aria-controls="displacementCard"><span>08</span>位移投影</button>
       </nav>
       <div class="layout">
         <div class="card input-card">
           <h2>倾斜原子层设置</h2>
-          <p class="help form-intro">用三个原子确定中心倾斜面，再设置上下层数量、厚度和可选的侧边界。</p>
+          <p class="help form-intro">先用三个点确定倾斜方向；也可再用两个相邻原子的中点定位中心面，随后设置上下层厚度与可选侧边界。</p>
 
           <div id="layerPlaneSettings" class="form-section side-nav-target">
-            <h3 class="section-heading"><span class="step-badge">1</span>输入中心倾斜面</h3>
-            <p class="help">A、B、C 必须是中心面上三个不共线的原子。</p>
+            <h3 class="section-heading"><span class="step-badge">1</span>输入基础平面与倾斜方向</h3>
+            <p class="help">A、B、C 必须是三个不共线的点。默认由它们同时确定平面方向和位置；启用下一步后，它们只负责确定倾斜方向。</p>
 
           <div class="coord-grid">
             <span></span><span class="axis">X</span><span class="axis">Y</span><span class="axis">Z</span>
@@ -377,8 +378,46 @@
           </div>
           </div>
 
+          <div id="layerMidplaneSettings" class="form-section side-nav-target">
+            <h3 class="section-heading"><span class="step-badge">2</span>用两个原子的中点定位中心面（可选）</h3>
+            <p class="help">选择界面两侧的两个相邻原子 P1、P2。程序取三维中点 M，并保持 A、B、C 给出的倾斜方向不变，使新的中心面平行移动后通过 M。</p>
+            <label class="checkline">
+              <input id="useMidplanePosition" type="checkbox">
+              启用双原子中点定位中心面
+            </label>
+            <div id="midplaneFields" class="limit-box hidden">
+              <div class="midplane-atom-grid">
+                <div class="calibration-point-card">
+                  <h4>界面第一侧原子 P1</h4>
+                  <p class="help">直接粘贴该原子的 X、Y、Z 坐标。</p>
+                  <div class="calibration-coordinate-entry midplane-coordinate-entry">
+                    <input id="midplaneAtom1" class="calibration-coordinate-input midplane-coordinate-input" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="例如：14.0199 261.154 125.018">
+                    <p class="coordinate-recognition" data-state="empty">等待粘贴三个 XYZ 坐标</p>
+                  </div>
+                </div>
+                <div class="calibration-point-card">
+                  <h4>界面第二侧原子 P2</h4>
+                  <p class="help">选择位于相邻一侧、与 P1 共同夹住中心面的原子。</p>
+                  <div class="calibration-coordinate-entry midplane-coordinate-entry">
+                    <input id="midplaneAtom2" class="calibration-coordinate-input midplane-coordinate-input" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="例如：12.5444 258.597 129.701">
+                    <p class="coordinate-recognition" data-state="empty">等待粘贴三个 XYZ 坐标</p>
+                  </div>
+                </div>
+              </div>
+              <div class="result-grid midplane-result-grid">
+                <div class="metric"><span>两原子的三维中点 M</span><strong id="midplanePointOut">—</strong></div>
+                <div class="metric"><span>中心面在 M 的 X/Y 处采用的 Z</span><strong id="midplaneTargetZOut">—</strong></div>
+                <div class="metric"><span>基础平面需要整体平移的 ΔZ</span><strong id="midplaneShiftOut">—</strong></div>
+                <div class="metric"><span>两原子沿面法向的间距</span><strong id="midplaneSpacingOut">—</strong></div>
+                <div class="metric midplane-distance-metric"><span>定位后 P1 / P2 到中心面的有符号距离</span><strong id="midplaneDistancesOut">—</strong></div>
+              </div>
+              <div id="midplaneMessage" class="message warn" aria-live="polite"></div>
+              <p class="help">启用后立即参与全部计算，不会改写上方 A、B、C 输入值。若平面近似垂直于 XY 面（n<sub>z</sub>≈0），则无法用单一 Z 位移定位。</p>
+            </div>
+          </div>
+
           <div id="layerStackSettings" class="form-section side-nav-target">
-            <h3 class="section-heading"><span class="step-badge">2</span>设置上下层数量与厚度</h3>
+            <h3 class="section-heading"><span class="step-badge">3</span>设置上下层数量与厚度</h3>
 
           <div class="row">
             <div class="field">
@@ -400,7 +439,7 @@
           </div>
 
           <div id="layerCalibrationSettings" class="form-section side-nav-target">
-          <h3 class="section-heading"><span class="step-badge">3</span>用已知原子校准目标层（可选）</h3>
+          <h3 class="section-heading"><span class="step-badge">4</span>用已知原子校准目标层（可选）</h3>
           <p class="help">可为 upper_1、lower_1 或其他目标层分别添加一组参考原子：每组可添加任意数量的层内点和层外点。程序会检查全部点到中心面的法向距离，并为每一组独立给出厚度建议。</p>
           <label class="checkline">
             <input id="useLayerCalibration" type="checkbox">
@@ -417,7 +456,7 @@
           </div>
 
           <div id="layerBoundarySettings" class="form-section side-nav-target">
-          <h3 class="section-heading"><span class="step-badge">4</span>限制原子层的横向范围（可选）</h3>
+          <h3 class="section-heading"><span class="step-badge">5</span>限制原子层的横向范围（可选）</h3>
           <p class="help">启用后会增加一条橙色侧边界，只保留这条边界某一侧的原子层。</p>
           <label class="checkline">
             <input id="useLayerLimit" type="checkbox" checked>
@@ -509,6 +548,7 @@
             <div class="metric"><span>上层 / 下层总厚度</span><strong id="layerThicknessOut">—</strong></div>
             <div class="metric"><span>侧边界保留条件</span><strong id="layerLimitOut">—</strong></div>
             <div class="metric"><span>逐层 Z 坐标的取样 X/Y</span><strong id="layerVerticalSampleOut">—</strong></div>
+            <div class="metric layer-position-metric"><span>中心面定位方式</span><strong id="layerPositionModeOut">由 A、B、C 直接确定</strong></div>
             <div class="metric layer-calibration-metric"><span>参考原子校准</span><strong id="layerCalibrationOut">未启用</strong></div>
           </div>
           <h3>原子层截面预览</h3>

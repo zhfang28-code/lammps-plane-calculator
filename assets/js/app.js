@@ -330,15 +330,77 @@ $("hexaExample").addEventListener("click", () => {
   calculateHexahedron();
 });
 
+function getMidplanePositioning(rawA,rawB,rawC,n,precision) {
+  if (!$("useMidplanePosition").checked) {
+    return {enabled:false,A:rawA,B:rawB,C:rawC};
+  }
+  const P1=parseCoordinateTriplet($("midplaneAtom1").value,"第一侧原子 P1").point;
+  const P2=parseCoordinateTriplet($("midplaneAtom2").value,"第二侧原子 P2").point;
+  if (norm(sub(P2,P1))<EPS) throw new Error("P1 与 P2 不能是同一个坐标，请选择界面两侧的两个不同原子。");
+  if (Math.abs(n[2])<1e-8) throw new Error("当前倾斜面的 n_z≈0，平面在固定 X/Y 处没有唯一 Z，无法用双原子中点确定 Z 位置。");
+  const midpoint=scale(add(P1,P2),0.5);
+  const signedNormalShift=dot(n,sub(midpoint,rawA));
+  const verticalShift=signedNormalShift/n[2];
+  if (!Number.isFinite(verticalShift)) throw new Error("根据两个原子中点计算出的 Z 平移量无效，请检查输入坐标。");
+  const shift=[0,0,verticalShift];
+  const A=add(rawA,shift), B=add(rawB,shift), C=add(rawC,shift);
+  const p1Distance=dot(n,sub(P1,A));
+  const p2Distance=dot(n,sub(P2,A));
+  const normalSpacing=Math.abs(dot(n,sub(P2,P1)));
+  return {
+    enabled:true,A,B,C,P1,P2,midpoint,verticalShift,signedNormalShift,
+    p1Distance,p2Distance,normalSpacing,precision
+  };
+}
+
 function getLayerGeometry() {
-  const A=readPoint("la"), B=readPoint("lb"), C=readPoint("lc");
-  if (![A,B,C].every(validPoint)) throw new Error("请完整输入倾斜面 A、B、C 的坐标。");
-  let n=cross(sub(B,A),sub(C,A));
+  const rawA=readPoint("la"), rawB=readPoint("lb"), rawC=readPoint("lc");
+  if (![rawA,rawB,rawC].every(validPoint)) throw new Error("请完整输入倾斜面 A、B、C 的坐标。");
+  let n=cross(sub(rawB,rawA),sub(rawC,rawA));
   if (norm(n)<EPS) throw new Error("倾斜面的三个点共线或过于接近，无法确定唯一平面。");
   n=normalized(n);
   if ($("layerNormalDirection").value==="reverse") n=scale(n,-1);
   const precision=Number($("layerPrecision").value);
-  return {A,B,C,n,precision};
+  const positioning=getMidplanePositioning(rawA,rawB,rawC,n,precision);
+  const {A,B,C}=positioning;
+  return {A,B,C,n,precision,rawA,rawB,rawC,positioning};
+}
+
+const MIDPLANE_OUTPUT_IDS=[
+  "midplanePointOut","midplaneTargetZOut","midplaneShiftOut",
+  "midplaneSpacingOut","midplaneDistancesOut"
+];
+
+function updateMidplaneControls() {
+  const enabled=$("useMidplanePosition").checked;
+  $("midplaneFields").classList.toggle("hidden",!enabled);
+  if (!enabled) {
+    MIDPLANE_OUTPUT_IDS.forEach(id=>$(id).textContent="—");
+    clearMessage("midplaneMessage");
+  }
+}
+
+function renderMidplanePreview() {
+  clearMessage("midplaneMessage");
+  if (!$("useMidplanePosition").checked) {
+    MIDPLANE_OUTPUT_IDS.forEach(id=>$(id).textContent="—");
+    return;
+  }
+  try {
+    const {positioning,precision}=getLayerGeometry();
+    const {midpoint,verticalShift,signedNormalShift,normalSpacing,p1Distance,p2Distance}=positioning;
+    $("midplanePointOut").textContent=vectorText(midpoint,precision);
+    $("midplaneTargetZOut").textContent=`Z=${clean(midpoint[2],precision)} Å @ X=${clean(midpoint[0],precision)}, Y=${clean(midpoint[1],precision)}`;
+    $("midplaneShiftOut").textContent=`ΔZ=${clean(verticalShift,precision)} Å；法向位移=${clean(signedNormalShift,precision)} Å`;
+    $("midplaneSpacingOut").textContent=`${clean(normalSpacing,precision)} Å`;
+    $("midplaneDistancesOut").textContent=`P1: ${clean(p1Distance,precision)} Å；P2: ${clean(p2Distance,precision)} Å`;
+    if (normalSpacing<Math.max(Math.pow(10,-precision)*2,1e-6)) {
+      showMessage("midplaneMessage","P1 与 P2 沿面法向的投影几乎重合；中点仍可定位平面，但这两个原子可能不是界面法向两侧的相邻原子。","warn");
+    }
+  } catch(error) {
+    MIDPLANE_OUTPUT_IDS.forEach(id=>$(id).textContent="—");
+    showMessage("midplaneMessage",error.message,"warn");
+  }
 }
 
 function projectedUnitDirection(reference,n,errorMessage) {
@@ -447,9 +509,9 @@ function layerCalibrationItems() {
 
 function parseCoordinateTriplet(text,label="参考点") {
   const matches=text.match(CALIBRATION_NUMBER_PATTERN);
-  if (!matches || matches.length<3) throw new Error(`请为${label}粘贴三个 XYZ 数值。`);
+  if (!matches || matches.length<3) throw new Error(`请为 ${label} 粘贴三个 XYZ 数值。`);
   const point=matches.slice(0,3).map(Number);
-  if (!validPoint(point)) throw new Error(`${label}的坐标必须是有效数值。`);
+  if (!validPoint(point)) throw new Error(`${label} 的坐标必须是有效数值。`);
   return {point,extraCount:Math.max(0,matches.length-3)};
 }
 
@@ -909,10 +971,31 @@ function renderLayerDiagram(geometry,config,rangeData,limit,calibrations=[]) {
 
   const normalSpan=Math.max(rangeData.sMax-rangeData.sMin,1);
   const q0=limit.enabled ? limit.q0 : 0;
-  const qMin=Math.min(-1.5*normalSpan,q0-0.65*normalSpan);
-  const qMax=Math.max(1.5*normalSpan,q0+0.65*normalSpan);
+  const midpointGuide=geometry.positioning.enabled ? {
+    P1:geometry.positioning.P1,
+    P2:geometry.positioning.P2,
+    midpoint:geometry.positioning.midpoint,
+    p1Distance:geometry.positioning.p1Distance,
+    p2Distance:geometry.positioning.p2Distance
+  } : null;
+  const midpointGuidePoints=midpointGuide ? [
+    {label:"P1",point:midpointGuide.P1,s:midpointGuide.p1Distance},
+    {label:"P2",point:midpointGuide.P2,s:midpointGuide.p2Distance},
+    {label:"M",point:midpointGuide.midpoint,s:0}
+  ].map(item=>({...item,q:dot(limit.m,sub(item.point,A))})) : [];
+  let qMin=Math.min(-1.5*normalSpan,q0-0.65*normalSpan);
+  let qMax=Math.max(1.5*normalSpan,q0+0.65*normalSpan);
+  if (midpointGuidePoints.length) {
+    const guidePadding=Math.max(normalSpan*0.14,0.2);
+    qMin=Math.min(qMin,...midpointGuidePoints.map(item=>item.q))-guidePadding;
+    qMax=Math.max(qMax,...midpointGuidePoints.map(item=>item.q))+guidePadding;
+  }
   const sPadding=Math.max(normalSpan*0.17,0.25);
-  const sMin=rangeData.sMin-sPadding, sMax=rangeData.sMax+sPadding;
+  let sMin=rangeData.sMin-sPadding, sMax=rangeData.sMax+sPadding;
+  if (midpointGuidePoints.length) {
+    sMin=Math.min(sMin,...midpointGuidePoints.map(item=>item.s))-sPadding*0.3;
+    sMax=Math.max(sMax,...midpointGuidePoints.map(item=>item.s))+sPadding*0.3;
+  }
   const project=(q,s)=>[
     q*limit.m[uIndex]+s*n[uIndex],
     q*limit.m[vIndex]+s*n[vIndex]
@@ -1003,6 +1086,40 @@ function renderLayerDiagram(geometry,config,rangeData,limit,calibrations=[]) {
     },"裁剪界面"));
   }
 
+  if (midpointGuidePoints.length) {
+    const P1=midpointGuidePoints.find(item=>item.label==="P1");
+    const P2=midpointGuidePoints.find(item=>item.label==="P2");
+    const M=midpointGuidePoints.find(item=>item.label==="M");
+    const p1Screen=screenPoint(P1.q,P1.s),p2Screen=screenPoint(P2.q,P2.s),midScreen=screenPoint(M.q,M.s);
+    svg.appendChild(svgNode("line",{
+      x1:p1Screen[0],y1:p1Screen[1],x2:p2Screen[0],y2:p2Screen[1],
+      stroke:"#76518f","stroke-width":2,"stroke-dasharray":"5 4"
+    }));
+    [
+      {item:P1,position:p1Screen,label:"P1"},
+      {item:P2,position:p2Screen,label:"P2"}
+    ].forEach(marker=>{
+      svg.appendChild(svgNode("circle",{
+        cx:marker.position[0],cy:marker.position[1],r:6,fill:"#ffffff",stroke:"#76518f","stroke-width":3
+      }));
+      svg.appendChild(svgNode("text",{
+        x:marker.position[0]+9,y:marker.position[1]-8,fill:"#65417e","font-size":11,"font-weight":800,
+        "font-family":"Segoe UI, Microsoft YaHei UI, sans-serif",stroke:"#ffffff","stroke-width":3,"paint-order":"stroke"
+      },marker.label));
+    });
+    const diamondPoints=[
+      [midScreen[0],midScreen[1]-7],[midScreen[0]+7,midScreen[1]],
+      [midScreen[0],midScreen[1]+7],[midScreen[0]-7,midScreen[1]]
+    ].map(point=>point.map(value=>value.toFixed(2)).join(",")).join(" ");
+    svg.appendChild(svgNode("polygon",{
+      points:diamondPoints,fill:"#f18a3b",stroke:"#ffffff","stroke-width":2
+    }));
+    svg.appendChild(svgNode("text",{
+      x:midScreen[0]+10,y:midScreen[1]+16,fill:"#b95618","font-size":11,"font-weight":800,
+      "font-family":"Segoe UI, Microsoft YaHei UI, sans-serif",stroke:"#ffffff","stroke-width":3,"paint-order":"stroke"
+    },"中点 M"));
+  }
+
   let calibrationMarkerCount=0;
   const calibrationMarkers=calibrations
     .filter(calibration=>!calibration.error)
@@ -1054,7 +1171,8 @@ function renderLayerDiagram(geometry,config,rangeData,limit,calibrations=[]) {
         ? `${calibrationMarkerCount} 个参考点可见，另有 ${hiddenMarkerCount} 个超出截面范围；绿色表示满足约束，红色表示不满足。`
         : `${calibrationMarkers.length} 个参考点均位于当前截面预览范围外，请查看各校准组的文字结果。`
     : "";
-  const caption=`${projection.labels.join("–")} 投影；蓝色为上层，绿色为下层，浅色轮廓为裁剪前范围。${limit.enabled ? `橙线为 m·X=${clean(limit.K,precision)}，箭头指向保留侧。` : ""} ${calibrationCaption} ${condition}；n=${vectorText(n,precision)}${limit.enabled ? `，m=${vectorText(limit.m,precision)}` : ""}。`;
+  const midpointCaption=midpointGuidePoints.length ? "紫色圆点为定位原子 P1、P2，橙色菱形为两者中点 M。" : "";
+  const caption=`${projection.labels.join("–")} 投影；蓝色为上层，绿色为下层，浅色轮廓为裁剪前范围。${limit.enabled ? `橙线为 m·X=${clean(limit.K,precision)}，箭头指向保留侧。` : ""} ${midpointCaption} ${calibrationCaption} ${condition}；n=${vectorText(n,precision)}${limit.enabled ? `，m=${vectorText(limit.m,precision)}` : ""}。`;
   $("layerDiagramCaption").textContent=caption;
   svg.setAttribute("aria-label",`倾斜原子层动态截面图。${caption}`);
 }
@@ -1092,7 +1210,7 @@ function calculateLayerCommands() {
   clearMessage("layerMessage");
   try {
     const geometry=getLayerGeometry();
-    const {A,B,C,n,precision}=geometry;
+    const {A,B,C,n,precision,rawA,rawB,rawC,positioning}=geometry;
     const config=getLayerConfiguration();
     const limit=getLayerLimit(geometry);
     if (limit.enabled && config.regionIds.includes(limit.id)) {
@@ -1134,6 +1252,9 @@ function calculateLayerCommands() {
       ? `${limit.condition}；m=${vectorText(limit.m,precision)}`
       : "关闭（不裁剪）";
     $("layerVerticalSampleOut").textContent=`X=${clean(samplePoint[0],precision)}，Y=${clean(samplePoint[1],precision)}`;
+    $("layerPositionModeOut").textContent=positioning.enabled
+      ? `双原子中点 M 定位；ΔZ=${clean(positioning.verticalShift,precision)} Å`
+      : "由 A、B、C 直接确定";
     const limitExplanation=limit.enabled
       ? `橙色侧边界使用 ${limit.sourceName} 作为保留方向参考轴：m=${vectorText(limit.m,precision)}。它位于中心倾斜面内，因此橙色界面与中心面垂直（m·n=${clean(dot(limit.m,n),precision)}）。\n侧边界经过 S=${vectorText(limit.S,precision)}，投影位置 K=m·S=${clean(limit.K,precision)}；保留 ${limit.condition}（LAMMPS side ${limit.regionSide}）。`
       : "侧边界已关闭；每层只由上下两条厚度边界限定。";
@@ -1143,8 +1264,13 @@ function calculateLayerCommands() {
         ? `[校准组 ${index+1}] 尚未完成：${calibration.error}`
         : `[校准组 ${index+1}]\n${calibration.explanation}`
       ).join("\n\n");
+    const positionExplanation=positioning.enabled
+      ? `基础点 A₀=${vectorText(rawA,precision)}、B₀=${vectorText(rawB,precision)}、C₀=${vectorText(rawC,precision)} 确定倾斜方向。
+P1=${vectorText(positioning.P1,precision)}、P2=${vectorText(positioning.P2,precision)} 的三维中点 M=${vectorText(positioning.midpoint,precision)} 用于定位中心面。
+保持法向不变，将基础平面沿 Z 平移 ΔZ=${clean(positioning.verticalShift,precision)} Å（等效法向位移 ${clean(positioning.signedNormalShift,precision)} Å）；定位后的参考点 A=${vectorText(A,precision)}。`
+      : `中心面由 A=${vectorText(A,precision)}、B=${vectorText(B,precision)}、C=${vectorText(C,precision)} 直接确定。`;
     $("layerExplanation").textContent =
-`中心面由 A=${vectorText(A,precision)}、B=${vectorText(B,precision)}、C=${vectorText(C,precision)} 确定。
+`${positionExplanation}
 定义法向距离 s=n·(X−A)，n=${vectorText(n,precision)} 指向上层。
 ${limitExplanation}
 ${calibrationExplanation}
@@ -1164,7 +1290,7 @@ group ${config.remainingGroup} subtract all ${config.upperGroup} ${config.lowerG
     renderLayerDiagram(geometry,config,rangeData,limit,calibrations);
   } catch(e) {
     $("layerCode").textContent="请修正输入参数后重新计算。";
-    ["layerNormalOut","layerEquationOut","layerCountOut","layerThicknessOut","layerLimitOut","layerVerticalSampleOut"].forEach(id=>$(id).textContent="—");
+    ["layerNormalOut","layerEquationOut","layerCountOut","layerThicknessOut","layerLimitOut","layerVerticalSampleOut","layerPositionModeOut"].forEach(id=>$(id).textContent="—");
     $("layerCalibrationOut").textContent=$("useLayerCalibration").checked ? "等待有效的原子层参数" : "未启用";
     $("layerCalibrationOut").dataset.state=$("useLayerCalibration").checked ? "waiting" : "disabled";
     $("layerCalibrationOut").dataset.cause=$("useLayerCalibration").checked ? "layer-error" : "";
@@ -1223,6 +1349,7 @@ displace_atoms ${lowerGroup} move ${lowerMove.map(v=>clean(v,precision)).join(" 
 }
 
 function syncLayerCalculations() {
+  renderMidplanePreview();
   calculateLayerCommands();
   calculateDisplacement();
 }
@@ -1262,8 +1389,23 @@ $("useLayerLimit").addEventListener("change", () => { updateLayerLimitControls()
 $("layerLimitDirection").addEventListener("change", () => { updateLayerLimitControls(); syncLayerCalculations(); });
 $("layerLimitMode").addEventListener("change", () => { updateLayerLimitControls(); syncLayerCalculations(); });
 $("limitPointFromA").addEventListener("click", () => {
-  ["x","y","z"].forEach(axis=>$("ls"+axis).value=$("la"+axis).value);
-  syncLayerCalculations();
+  clearMessage("layerMessage");
+  try {
+    const {A}=getLayerGeometry();
+    ["x","y","z"].forEach((axis,index)=>$("ls"+axis).value=A[index]);
+    syncLayerCalculations();
+  } catch(error) {
+    showMessage("layerMessage",error.message);
+  }
+});
+$("useMidplanePosition").addEventListener("change", () => { updateMidplaneControls(); syncLayerCalculations(); });
+["midplaneAtom1","midplaneAtom2"].forEach(id => {
+  const input=$(id);
+  input.addEventListener("input",() => {
+    updateCalibrationCoordinateRecognition(input);
+    syncLayerCalculations();
+  });
+  input.addEventListener("change",syncLayerCalculations);
 });
 $("useLayerCalibration").addEventListener("change", () => { updateLayerCalibrationControls(); syncLayerCalculations(); });
 $("addLayerCalibration").addEventListener("click",()=>createLayerCalibrationItem());
@@ -1282,6 +1424,12 @@ $("layerExample").addEventListener("click", () => {
   const values={lax:0,lay:0,laz:0,lbx:10,lby:0,lbz:10,lcx:0,lcy:10,lcz:0};
   Object.entries(values).forEach(([id,value])=>$(id).value=value);
   $("layerNormalDirection").value="forward";
+  $("useMidplanePosition").checked=false;
+  ["midplaneAtom1","midplaneAtom2"].forEach(id=>{
+    $(id).value="";
+    updateCalibrationCoordinateRecognition($(id));
+  });
+  updateMidplaneControls();
   $("layerCount").value=2;
   $("layerTolerance").value=0;
   $("upperPrefix").value="upper"; $("lowerPrefix").value="lower";
@@ -1389,5 +1537,6 @@ calculateHexahedron();
 ensureLayerCalibrationItem();
 renderLayerRows();
 updateLayerLimitControls();
+updateMidplaneControls();
 updateLayerCalibrationControls();
 syncLayerCalculations();
