@@ -401,39 +401,18 @@
 
           <div id="layerCalibrationSettings" class="form-section side-nav-target">
           <h3 class="section-heading"><span class="step-badge">3</span>用已知原子校准目标层（可选）</h3>
-          <p class="help">为某个 upper_i 或 lower_i 指定一个“必须选中”的原子点和一个“必须排除”的原子点，用它们到中心面的法向距离检查并优化该层外边界。</p>
+          <p class="help">可为 upper_1、lower_1 或其他目标层分别添加一组参考原子：每组可添加任意数量的层内点和层外点。程序会检查全部点到中心面的法向距离，并为每一组独立给出厚度建议。</p>
           <label class="checkline">
             <input id="useLayerCalibration" type="checkbox">
             启用参考原子校准
           </label>
           <div id="layerCalibrationFields" class="limit-box hidden">
-            <div class="field">
-              <label for="layerCalibrationTarget">要校准的目标层</label>
-              <select id="layerCalibrationTarget"></select>
-            </div>
-            <div class="calibration-point-grid">
-              <div class="calibration-point-card">
-                <h4>必须在目标层内的点 P<sub>in</sub></h4>
-                <p class="help">填写一个确定应被选入该层的原子坐标。</p>
-                <div class="coord-grid">
-                  <span></span><span class="axis">X</span><span class="axis">Y</span><span class="axis">Z</span>
-                  <span class="point-name">P<sub>in</sub></span><input id="calInx" type="number" step="any" placeholder="X"><input id="calIny" type="number" step="any" placeholder="Y"><input id="calInz" type="number" step="any" placeholder="Z">
-                </div>
-              </div>
-              <div class="calibration-point-card">
-                <h4>必须不在目标层内的点 P<sub>out</sub></h4>
-                <p class="help">填写一个确定应被该层排除的原子坐标。</p>
-                <div class="coord-grid">
-                  <span></span><span class="axis">X</span><span class="axis">Y</span><span class="axis">Z</span>
-                  <span class="point-name">P<sub>out</sub></span><input id="calOutx" type="number" step="any" placeholder="X"><input id="calOuty" type="number" step="any" placeholder="Y"><input id="calOutz" type="number" step="any" placeholder="Z">
-                </div>
-              </div>
-            </div>
-            <div id="layerCalibrationMessage" class="message warn" aria-live="polite"></div>
+            <div id="layerCalibrationItems" class="calibration-list"></div>
+            <div id="layerCalibrationGlobalMessage" class="message warn" aria-live="polite"></div>
             <div class="actions">
-              <button class="secondary" id="applyLayerCalibration" type="button" disabled>按两点中间位置优化目标层厚度</button>
+              <button class="secondary" id="addLayerCalibration" type="button">＋ 添加另一层校准</button>
             </div>
-            <p class="help">优化只修改目标层这一排的厚度，不改变中心面、其他排厚度或横向裁剪设置。由于各排从中心向外累计，目标层外侧各排的绝对位置会随新边界一起平移。若两点无法由同一条外边界分开，程序会说明应调整的参数。</p>
+            <p class="help">每个目标层只能添加一次；每组的层内点、层外点数量不限。可直接粘贴三个 XYZ 数值，支持空格、逗号、括号以及 <code>x=… y=… z=…</code>。优化只修改当前校准组对应排的厚度；由于各排从中心向外累计，目标层外侧各排的绝对位置会随新边界一起平移。</p>
           </div>
           </div>
 
