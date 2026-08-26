@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>LAMMPS 平面与四面体区域计算器</title>
+  <title>LAMMPS 平面、倾斜原子层与六面体计算器</title>
   <style>
     :root {
       color-scheme: light;
@@ -52,6 +52,7 @@
     }
     .tabs {
       display: flex;
+      flex-wrap: wrap;
       gap: 8px;
       margin-bottom: 14px;
     }
@@ -71,14 +72,17 @@
       display: grid;
       grid-template-columns: minmax(360px, .9fr) minmax(420px, 1.1fr);
       gap: 16px;
+      align-items: start;
     }
     .card {
       border: 1px solid var(--line);
       border-radius: 15px;
       background: rgba(255,255,255,.94);
       box-shadow: 0 12px 30px rgba(20, 40, 50, .07);
-      padding: 19px;
+      padding: 21px;
+      min-width: 0;
     }
+    .layout > *, .displacement-layout > * { min-width: 0; }
     h2 { margin: 0 0 14px; font-size: 18px; }
     h3 { margin: 20px 0 8px; font-size: 15px; }
     .help { color: var(--muted); font-size: 13px; line-height: 1.6; }
@@ -105,6 +109,7 @@
       align-items: center;
       margin-bottom: 9px;
     }
+    .coord-grid > * { min-width: 0; }
     .coord-grid .axis { color: var(--muted); text-align: center; font-size: 12px; font-weight: 700; }
     .point-name {
       text-align: center;
@@ -126,6 +131,78 @@
     }
     .checkline input { width: auto; }
     .actions { display: flex; gap: 9px; flex-wrap: wrap; margin-top: 15px; }
+    .form-intro { margin: -5px 0 17px; }
+    .form-section {
+      margin-bottom: 15px;
+      padding: 15px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fbfcfd;
+    }
+    .form-section > :last-child { margin-bottom: 0; }
+    .section-heading {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      margin: 0 0 12px;
+      font-size: 15px;
+    }
+    .step-badge {
+      display: inline-grid;
+      place-items: center;
+      width: 24px;
+      height: 24px;
+      flex: none;
+      border-radius: 50%;
+      color: #fff;
+      background: var(--accent);
+      font-size: 12px;
+      font-weight: 800;
+    }
+    details.inline-tool, details.advanced-options {
+      margin: 13px 0 0;
+      border: 1px solid #cfdce2;
+      border-radius: 10px;
+      background: #fff;
+      overflow: hidden;
+    }
+    details.advanced-options { margin: 15px 0; background: #f8fafb; }
+    details.inline-tool > summary, details.advanced-options > summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 11px 13px;
+      color: var(--accent-dark);
+      font-size: 13px;
+      font-weight: 750;
+      cursor: pointer;
+      list-style: none;
+      user-select: none;
+    }
+    details.inline-tool > summary::-webkit-details-marker,
+    details.advanced-options > summary::-webkit-details-marker { display: none; }
+    details.inline-tool > summary::after,
+    details.advanced-options > summary::after {
+      content: "+";
+      color: var(--accent);
+      font-size: 19px;
+      line-height: 1;
+    }
+    details.inline-tool[open] > summary::after,
+    details.advanced-options[open] > summary::after { content: "−"; }
+    .details-body {
+      padding: 0 13px 13px;
+      border-top: 1px solid #e3eaee;
+    }
+    .details-body .help { margin-top: 10px; }
+    .details-body textarea { min-height: 86px; }
+    .details-body .actions { margin-top: 9px; }
+    .result-card h3 {
+      margin-top: 18px;
+      padding-top: 16px;
+      border-top: 1px solid #e4eaee;
+    }
     button {
       border: 0;
       border-radius: 9px;
@@ -174,6 +251,105 @@
       line-height: 1.65;
       white-space: pre-line;
     }
+    .layer-table {
+      margin: 9px 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .layer-row {
+      display: grid;
+      grid-template-columns: 58px 1fr 1fr;
+      gap: 8px;
+      align-items: center;
+      padding: 8px 10px;
+      border-top: 1px solid var(--line);
+    }
+    .layer-row:first-child { border-top: 0; }
+    .layer-row.header {
+      color: var(--muted);
+      background: #f3f7f9;
+      font-size: 12px;
+      font-weight: 700;
+      text-align: center;
+    }
+    .layer-row .pair-index {
+      color: var(--accent-dark);
+      font-weight: 750;
+      text-align: center;
+    }
+    .face-set {
+      margin-top: 12px;
+      padding: 12px;
+      border: 1px solid #d8e3e8;
+      border-radius: 10px;
+      background: #fff;
+    }
+    .face-set-title {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 9px;
+      color: var(--accent-dark);
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .face-set-title small { color: var(--muted); font-weight: 500; }
+    .connection-note {
+      margin: 10px 0 0;
+      padding: 10px 12px;
+      border-radius: 9px;
+      color: #425865;
+      background: #eef6f6;
+      font-size: 12px;
+      line-height: 1.65;
+    }
+    .displacement-layout {
+      display: grid;
+      grid-template-columns: minmax(330px, .8fr) minmax(430px, 1.2fr);
+      gap: 18px;
+    }
+    .command-scroll {
+      height: 430px;
+      max-height: 430px;
+      overflow: auto;
+      white-space: pre;
+      scrollbar-gutter: stable;
+    }
+    .limit-box {
+      margin: 10px 0 0;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: #ffffff;
+    }
+    .diagram-toolbar {
+      display: flex;
+      align-items: end;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .diagram-toolbar .field { width: min(260px, 100%); margin: 0; }
+    .diagram-shell {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: #fbfcfd;
+    }
+    #layerDiagram {
+      display: block;
+      width: 100%;
+      height: auto;
+      aspect-ratio: 2 / 1;
+      min-height: 280px;
+    }
+    .diagram-caption {
+      margin: 7px 2px 13px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.55;
+    }
     .message {
       display: none;
       margin: 12px 0;
@@ -193,7 +369,16 @@
     @media (max-width: 850px) {
       header { display: block; }
       .badge { display: inline-block; margin-top: 12px; }
-      .layout { grid-template-columns: 1fr; }
+      .layout, .displacement-layout { grid-template-columns: minmax(0, 1fr); }
+    }
+    @media (max-width: 600px) {
+      .shell { width: min(100% - 18px, 1180px); margin-top: 14px; }
+      .card { padding: 15px; }
+      .row, .result-grid { grid-template-columns: 1fr; }
+      .coord-grid { grid-template-columns: 32px repeat(3, minmax(0, 1fr)); gap: 5px; }
+      .coord-grid input { padding-inline: 7px; }
+      .form-section { padding: 12px; }
+      .tabs { display: grid; grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -202,33 +387,32 @@
     <header>
       <div>
         <h1>LAMMPS 区域计算器</h1>
-        <p>由原子坐标生成平面、半空间与不规则四面体的可直接运行命令。</p>
+        <p>由原子坐标生成平面、倾斜原子层、位移投影与六面体的可直接运行命令。</p>
       </div>
       <div class="badge">离线单文件 · 单位 Å · 笛卡尔坐标</div>
     </header>
 
     <nav class="tabs" aria-label="计算模式">
       <button class="tab active" data-tab="plane">平面 / 边界线</button>
-      <button class="tab" data-tab="tetra">四面体</button>
+      <button class="tab" data-tab="hexa">六面体</button>
+      <button class="tab" data-tab="layers">倾斜原子层 / 位移</button>
     </nav>
 
     <section id="plane" class="panel active">
       <div class="layout">
-        <div class="card">
-          <h2>输入平面参数</h2>
-          <div class="row">
+        <div class="card input-card">
+          <h2>平面与边界设置</h2>
+          <p class="help form-intro">先用坐标确定平面，再选择 LAMMPS 要保留的平面一侧。输出名称和 Atomsk 文件设置放在下方高级选项中。</p>
+
+          <div class="form-section">
+            <h3 class="section-heading"><span class="step-badge">1</span>定义平面</h3>
             <div class="field">
-              <label for="planeMode">求解方式</label>
+              <label for="planeMode">坐标输入方式</label>
               <select id="planeMode">
-                <option value="three">三个不共线原子</option>
-                <option value="line">两个原子 + 延伸方向</option>
+                <option value="three">输入平面上的三个原子 A、B、C</option>
+                <option value="line">输入边界线 A→B 和延伸方向 E</option>
               </select>
             </div>
-            <div class="field">
-              <label for="planeId">Region ID</label>
-              <input id="planeId" value="boundary_plane">
-            </div>
-          </div>
 
           <div class="coord-grid">
             <span></span><span class="axis">X</span><span class="axis">Y</span><span class="axis">Z</span>
@@ -247,9 +431,23 @@
           </div>
           <p id="thirdHelp" class="help">C 是平面上的第三个原子，A、B、C 不能共线。</p>
 
+            <details class="inline-tool">
+              <summary>从 OVITO 批量填写 A、B、C / E</summary>
+              <div class="details-body">
+                <p class="help">每行一个坐标，支持空格、逗号或括号；依次填入上方三行。</p>
+                <textarea id="planePasteArea" aria-label="粘贴平面坐标" placeholder="例如：&#10;41.5571 9.7928 10.7388&#10;41.5282 8.08904 13.132&#10;41.5014 9.7928 15.5244"></textarea>
+                <div id="planePasteMessage" class="message error"></div>
+                <div class="actions"><button class="secondary" id="pastePlane" type="button">填入上方三个坐标</button></div>
+              </div>
+            </details>
+          </div>
+
+          <div class="form-section">
+            <h3 class="section-heading"><span class="step-badge">2</span>选择要处理的平面一侧</h3>
+
           <label class="checkline">
             <input id="useInside" type="checkbox">
-            使用一个已知“内部点”自动调整法向方向
+            我有一个模型内部点 Q，用它自动确定 +n 方向
           </label>
           <div id="insideFields" class="coord-grid hidden">
             <span></span><span class="axis">X</span><span class="axis">Y</span><span class="axis">Z</span>
@@ -260,40 +458,51 @@
           </div>
 
           <div class="field">
-            <label for="planeSide">命令对应的半空间方向</label>
+            <label for="planeSide">LAMMPS 要选择哪一侧</label>
             <select id="planeSide">
-              <option value="in">法向正侧（side in：n·(X−A) ≥ 0）</option>
-              <option value="out">法向反侧（side out：n·(X−A) ≤ 0）</option>
+              <option value="in">朝 +n 方向的一侧（side in）</option>
+              <option value="out">朝 −n 方向的一侧（side out）</option>
             </select>
-            <p class="help">LAMMPS 将优先选取该侧，Atomsk 将删除同一侧。启用内部点 Q 时，Q 所在侧定义为 side in。</p>
+            <p class="help">LAMMPS 选择这里指定的一侧，Atomsk 删除同一侧。计算结果会同时显示对应的不等式。</p>
+          </div>
           </div>
 
-          <div class="row">
-            <div class="field">
-              <label for="planePrecision">输出小数位</label>
-              <select id="planePrecision">
-                <option>4</option><option selected>8</option><option>12</option>
-              </select>
+          <details class="advanced-options">
+            <summary>LAMMPS 输出名称、精度与 Atomsk 文件（高级）</summary>
+            <div class="details-body">
+              <div class="field">
+                <label for="planeId">LAMMPS 区域名称（Region ID）</label>
+                <input id="planeId" value="boundary_plane">
+              </div>
+              <div class="row">
+                <div class="field">
+                  <label for="planePrecision">输出小数位</label>
+                  <select id="planePrecision">
+                    <option>4</option><option selected>8</option><option>12</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="planeUnits">LAMMPS 坐标单位</label>
+                  <select id="planeUnits"><option value="box">box（盒子坐标）</option><option value="lattice">lattice（晶格坐标）</option></select>
+                </div>
+              </div>
+              <div class="row">
+                <div class="field">
+                  <label for="atomskInput">Atomsk 输入文件</label>
+                  <input id="atomskInput" value="input.cfg">
+                </div>
+                <div class="field">
+                  <label for="atomskOutput">Atomsk 输出文件（删除所选侧后）</label>
+                  <input id="atomskOutput" value="inside_deleted.cfg">
+                </div>
+              </div>
+              <div class="field">
+                <label for="atomskTolerance">靠近平面的保护距离（Å）</label>
+                <input id="atomskTolerance" type="number" step="any" min="0" value="0.001">
+                <p class="help">保护距离内的原子不删除，用于避免旋转和小数舍入造成误删。</p>
+              </div>
             </div>
-            <div class="field">
-              <label for="planeUnits">LAMMPS 单位</label>
-              <select id="planeUnits"><option value="box">box</option><option value="lattice">lattice</option></select>
-            </div>
-          </div>
-          <div class="row">
-            <div class="field">
-              <label for="atomskInput">Atomsk 输入文件</label>
-              <input id="atomskInput" value="input.cfg">
-            </div>
-            <div class="field">
-              <label for="atomskOutput">删除所选侧后的输出文件</label>
-              <input id="atomskOutput" value="inside_deleted.cfg">
-            </div>
-          </div>
-          <div class="field">
-            <label for="atomskTolerance">Atomsk 保留平面容差（Å）</label>
-            <input id="atomskTolerance" type="number" step="any" min="0" value="0.001">
-          </div>
+          </details>
           <div id="planeMessage" class="message error"></div>
           <div class="actions">
             <button class="primary" id="calcPlane">计算并生成命令</button>
@@ -301,94 +510,373 @@
           </div>
         </div>
 
-        <div class="card">
-          <h2>计算结果</h2>
+        <div class="card result-card">
+          <h2>平面计算结果</h2>
           <div class="result-grid">
-            <div class="metric"><span>单位法向量 n</span><strong id="normalOut">—</strong></div>
-            <div class="metric"><span>平面常数 D</span><strong id="constantOut">—</strong></div>
-            <div class="metric"><span>平面方程</span><strong id="equationOut">—</strong></div>
+            <div class="metric"><span>平面的单位方向 n</span><strong id="normalOut">—</strong></div>
+            <div class="metric"><span>方程常数 D</span><strong id="constantOut">—</strong></div>
+            <div class="metric"><span>完整平面方程</span><strong id="equationOut">—</strong></div>
             <div class="metric"><span id="sideLabel">所选空间判据</span><strong id="sideOut">n·(X−A) ≥ 0</strong></div>
           </div>
-          <h3>计算说明</h3>
+          <h3>这组坐标如何得到平面</h3>
           <div id="planeExplanation" class="explanation" aria-live="polite">输入坐标后自动生成计算说明。</div>
-          <h3>LAMMPS 命令</h3>
+          <h3>可复制的 LAMMPS 命令</h3>
           <pre id="planeCode">输入坐标后点击“计算并生成命令”。</pre>
           <div class="actions">
             <button class="secondary" data-copy="planeCode" data-message="planeMessage">复制 LAMMPS 命令</button>
           </div>
-          <h3 id="atomskHeading">Atomsk 命令：删除法向正侧（side in）</h3>
+          <h3 id="atomskHeading">Atomsk 删除命令：删除 +n 一侧（side in）</h3>
           <div id="atomskExplanation" class="explanation" aria-live="polite">输入坐标后自动生成 Atomsk 处理说明。</div>
           <pre id="atomskCode">输入坐标后自动生成 Atomsk 命令。</pre>
           <div class="actions">
             <button class="secondary" data-copy="atomskCode" data-message="planeMessage">复制 Atomsk 命令</button>
           </div>
           <p class="help">Atomsk 的 cut 不直接接受任意笛卡尔法向量，因此命令会先把平面平移到原点并旋转到 XY 平面，根据所选方向删除 +Z 或 −Z 一侧，再执行逆旋转和平移。</p>
-          <p class="help">法向量已归一化，LAMMPS 不要求单位法向量，但归一化便于检查。可通过“命令对应的半空间方向”切换两侧，相关命令会同步更新。</p>
+          <p class="help">方向 n 已归一化，便于检查。切换“LAMMPS 要选择哪一侧”后，LAMMPS 与 Atomsk 命令会一起更新。</p>
         </div>
       </div>
     </section>
 
-    <section id="tetra" class="panel">
+    <section id="hexa" class="panel">
       <div class="layout">
-        <div class="card">
-          <h2>输入四个顶点</h2>
-          <div class="field">
-            <label for="tetraId">Region ID</label>
-            <input id="tetraId" value="tetra">
+        <div class="card input-card">
+          <h2>六面体设置</h2>
+          <p class="help form-intro">输入八个顶点，其中 A–D 和 E–H 是两张对应的平行面；程序会检查其余四个侧面是否能共同闭合为凸六面体。</p>
+
+          <div class="form-section">
+            <h3 class="section-heading"><span class="step-badge">1</span>选择必须平行的两个面</h3>
+            <div class="field">
+              <label for="hexaParallelMode">A–D 与 E–H 平行面的方向</label>
+              <select id="hexaParallelMode">
+                <option value="yz">YZ 面平行（两张 x=常数的面）</option>
+                <option value="xz">XZ 面平行（两张 y=常数的面）</option>
+                <option value="xy">XY 面平行（两张 z=常数的面）</option>
+                <option value="free">任意方向（由坐标自动检查平行）</option>
+              </select>
+              <p class="help">选择 YZ、XZ 或 XY 时，同一张面上的对应坐标允许在几何容差内有轻微偏差，计算时会取平均值以保证两面严格平行。</p>
+            </div>
           </div>
+
+          <div class="form-section">
+            <h3 class="section-heading"><span class="step-badge">2</span>按顺序输入八个顶点</h3>
+            <div class="face-set">
+              <div class="face-set-title"><span>平行面 1：A → B → C → D</span><small>四点沿边界顺序排列</small></div>
+              <div class="coord-grid">
+                <span></span><span class="axis">X</span><span class="axis">Y</span><span class="axis">Z</span>
+                <span class="point-name">A</span><input id="hax" type="number" step="any" value="0"><input id="hay" type="number" step="any" value="0"><input id="haz" type="number" step="any" value="0">
+                <span class="point-name">B</span><input id="hbx" type="number" step="any" value="0"><input id="hby" type="number" step="any" value="10"><input id="hbz" type="number" step="any" value="0">
+                <span class="point-name">C</span><input id="hcx" type="number" step="any" value="0"><input id="hcy" type="number" step="any" value="10"><input id="hcz" type="number" step="any" value="10">
+                <span class="point-name">D</span><input id="hdx" type="number" step="any" value="0"><input id="hdy" type="number" step="any" value="0"><input id="hdz" type="number" step="any" value="10">
+              </div>
+            </div>
+            <div class="face-set">
+              <div class="face-set-title"><span>平行面 2：E → F → G → H</span><small>分别对应 A、B、C、D</small></div>
+              <div class="coord-grid">
+                <span></span><span class="axis">X</span><span class="axis">Y</span><span class="axis">Z</span>
+                <span class="point-name">E</span><input id="hex" type="number" step="any" value="10"><input id="hey" type="number" step="any" value="0"><input id="hez" type="number" step="any" value="0">
+                <span class="point-name">F</span><input id="hfx" type="number" step="any" value="10"><input id="hfy" type="number" step="any" value="10"><input id="hfz" type="number" step="any" value="0">
+                <span class="point-name">G</span><input id="hgx" type="number" step="any" value="10"><input id="hgy" type="number" step="any" value="10"><input id="hgz" type="number" step="any" value="10">
+                <span class="point-name">H</span><input id="hhx" type="number" step="any" value="10"><input id="hhy" type="number" step="any" value="0"><input id="hhz" type="number" step="any" value="10">
+              </div>
+            </div>
+            <div class="connection-note">连接规则：A–E、B–F、C–G、D–H。由此自动形成四个侧面 A-B-F-E、B-C-G-F、C-D-H-G、D-A-E-H。</div>
+
+            <details class="inline-tool">
+              <summary>从 OVITO 批量填写 A、B、C、D、E、F、G、H</summary>
+              <div class="details-body">
+                <p class="help">每行一个坐标，前八行按照 A 到 H 的顺序填入。</p>
+                <textarea id="hexaPasteArea" aria-label="粘贴六面体坐标" placeholder="例如：&#10;0 0 0&#10;0 10 0&#10;0 10 10&#10;0 0 10&#10;10 0 0&#10;10 10 0&#10;10 10 10&#10;10 0 10"></textarea>
+                <div id="hexaPasteMessage" class="message error"></div>
+                <div class="actions"><button class="secondary" id="pasteHexa" type="button">填入上方八个坐标</button></div>
+              </div>
+            </details>
+          </div>
+
+          <details class="advanced-options">
+            <summary>LAMMPS 输出名称、精度与几何检查容差（高级）</summary>
+            <div class="details-body">
+              <div class="field">
+                <label for="hexaId">LAMMPS 区域名称（Region ID）</label>
+                <input id="hexaId" value="hexa">
+              </div>
+              <div class="row">
+                <div class="field">
+                  <label for="hexaPrecision">输出小数位</label>
+                  <select id="hexaPrecision"><option>4</option><option selected>8</option><option>12</option></select>
+                </div>
+                <div class="field">
+                  <label for="hexaUnits">LAMMPS 坐标单位</label>
+                  <select id="hexaUnits"><option value="box">box（盒子坐标）</option><option value="lattice">lattice（晶格坐标）</option></select>
+                </div>
+              </div>
+              <div class="row">
+                <div class="field">
+                  <label for="hexaTolerance">共面与轴向检查容差（Å）</label>
+                  <input id="hexaTolerance" type="number" min="0" step="any" value="0.001">
+                </div>
+                <div class="field">
+                  <label for="hexaAngleTolerance">平行角度容差（°）</label>
+                  <input id="hexaAngleTolerance" type="number" min="0" max="10" step="any" value="0.1">
+                </div>
+              </div>
+            </div>
+          </details>
+          <div id="hexaMessage" class="message error"></div>
+          <div class="actions">
+            <button class="primary" id="calcHexa">计算六个面并生成命令</button>
+            <button class="secondary" id="hexaExample">载入 YZ 平行面示例</button>
+          </div>
+        </div>
+
+        <div class="card result-card">
+          <h2>六面体结果</h2>
+          <div class="result-grid">
+            <div class="metric"><span>六面体体积</span><strong id="hexaVolumeOut">—</strong></div>
+            <div class="metric"><span>指定的平行面</span><strong id="hexaParallelOut">—</strong></div>
+            <div class="metric"><span>几何检查</span><strong id="hexaGeometryOut">—</strong></div>
+            <div class="metric"><span>内部选取方法</span><strong>六个面的内侧区域交集</strong></div>
+          </div>
+          <h3>八个顶点如何组成六面体</h3>
+          <div id="hexaExplanation" class="explanation" aria-live="polite">输入八个顶点后自动检查平行面、共面性和闭合关系。</div>
+          <h3>可复制的 LAMMPS 命令</h3>
+          <pre id="hexaCode">输入八个顶点后点击“计算六个面并生成命令”。</pre>
+          <div class="actions">
+            <button class="secondary" data-copy="hexaCode" data-message="hexaMessage">复制 LAMMPS 命令</button>
+          </div>
+          <p class="help">每个四边形面先转换为一个指向六面体内部的 plane 区域，再通过 intersect 6 取得共同内部。输入点必须位于同一个周期映像中。</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="layers" class="panel">
+      <div class="layout">
+        <div class="card input-card">
+          <h2>倾斜原子层设置</h2>
+          <p class="help form-intro">用三个原子确定中心倾斜面，再设置上下层数量、厚度和可选的侧边界。</p>
+
+          <div class="form-section">
+            <h3 class="section-heading"><span class="step-badge">1</span>输入中心倾斜面</h3>
+            <p class="help">A、B、C 必须是中心面上三个不共线的原子。</p>
+
           <div class="coord-grid">
             <span></span><span class="axis">X</span><span class="axis">Y</span><span class="axis">Z</span>
-            <span class="point-name">A</span><input id="tax" type="number" step="any" value="0"><input id="tay" type="number" step="any" value="0"><input id="taz" type="number" step="any" value="0">
-            <span class="point-name">B</span><input id="tbx" type="number" step="any" value="10"><input id="tby" type="number" step="any" value="0"><input id="tbz" type="number" step="any" value="0">
-            <span class="point-name">C</span><input id="tcx" type="number" step="any" value="0"><input id="tcy" type="number" step="any" value="10"><input id="tcz" type="number" step="any" value="0">
-            <span class="point-name">D</span><input id="tdx" type="number" step="any" value="0"><input id="tdy" type="number" step="any" value="0"><input id="tdz" type="number" step="any" value="10">
+            <span class="point-name">A</span><input id="lax" type="number" step="any" value="0"><input id="lay" type="number" step="any" value="0"><input id="laz" type="number" step="any" value="0">
+            <span class="point-name">B</span><input id="lbx" type="number" step="any" value="10"><input id="lby" type="number" step="any" value="0"><input id="lbz" type="number" step="any" value="10">
+            <span class="point-name">C</span><input id="lcx" type="number" step="any" value="0"><input id="lcy" type="number" step="any" value="10"><input id="lcz" type="number" step="any" value="0">
           </div>
+
+            <details class="inline-tool">
+              <summary>从 OVITO 批量填写 A、B、C</summary>
+              <div class="details-body">
+                <p class="help">每行一个坐标，前三行依次填入 A、B、C。</p>
+                <textarea id="layerPasteArea" aria-label="粘贴倾斜面坐标" placeholder="例如：&#10;41.5571 9.7928 10.7388&#10;41.5282 8.08904 13.132&#10;41.5014 9.7928 15.5244"></textarea>
+                <div id="layerPasteMessage" class="message error"></div>
+                <div class="actions"><button class="secondary" id="pasteLayers" type="button">填入上方三个坐标</button></div>
+              </div>
+            </details>
+
+          <div class="field">
+            <label for="layerNormalDirection">把中心面的哪一侧定义为“上层”</label>
+            <select id="layerNormalDirection">
+              <option value="forward">按 A→B × A→C 的方向作为上层（+n）</option>
+              <option value="reverse">按相反方向作为上层（−n）</option>
+            </select>
+            <p class="help">如果预览中的上层和下层与实际模型相反，切换此选项即可。</p>
+          </div>
+          </div>
+
+          <div class="form-section">
+            <h3 class="section-heading"><span class="step-badge">2</span>设置上下层数量与厚度</h3>
+
           <div class="row">
             <div class="field">
-              <label for="tetraPrecision">输出小数位</label>
-              <select id="tetraPrecision"><option>4</option><option selected>8</option><option>12</option></select>
+              <label for="layerCount">上下各生成几排（1–20）</label>
+              <input id="layerCount" type="number" min="1" max="20" step="1" value="1">
             </div>
             <div class="field">
-              <label for="tetraUnits">LAMMPS 单位</label>
-              <select id="tetraUnits"><option value="box">box</option><option value="lattice">lattice</option></select>
+              <label for="layerTolerance">中心面每侧的留空距离（Å）</label>
+              <input id="layerTolerance" type="number" min="0" step="any" value="0">
             </div>
           </div>
-          <div id="tetraMessage" class="message error"></div>
+
+          <label>每排沿上层 / 下层方向的厚度（Å）</label>
+          <div class="layer-table">
+            <div class="layer-row header"><span>排</span><span>上层厚度</span><span>下层厚度</span></div>
+            <div id="layerRows"></div>
+          </div>
+          <p class="help">第 1 排最靠近中心面，后续各排依次向外累计。留空距离为 0 时各层连续；大于 0 时中心面两侧会保留一段不选择的区域。</p>
+          </div>
+
+          <div class="form-section">
+          <h3 class="section-heading"><span class="step-badge">3</span>限制原子层的横向范围（可选）</h3>
+          <p class="help">启用后会增加一条橙色侧边界，只保留这条边界某一侧的原子层。</p>
+          <label class="checkline">
+            <input id="useLayerLimit" type="checkbox" checked>
+            启用侧边界，只保留边界一侧
+          </label>
+          <div id="layerLimitFields" class="limit-box">
+            <div class="row">
+              <div class="field">
+                <label for="layerLimitDirection">保留方向参考轴（橙色界面的法向）</label>
+                <select id="layerLimitDirection">
+                  <option value="ab">沿 A→B 方向判断</option>
+                  <option value="ac">沿 A→C 方向判断</option>
+                  <option value="custom">使用自定义面内方向</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="layerLimitSide">保留侧</label>
+                <select id="layerLimitSide">
+                  <option value="greater">从 S 朝参考轴正方向的一侧（side in）</option>
+                  <option value="less">从 S 朝参考轴反方向的一侧（side out）</option>
+                </select>
+              </div>
+            </div>
+            <div id="customLayerLimitDirection" class="coord-grid hidden">
+              <span></span><span class="axis">X</span><span class="axis">Y</span><span class="axis">Z</span>
+              <span class="point-name">M</span><input id="lvx" type="number" step="any" value="1"><input id="lvy" type="number" step="any" value="0"><input id="lvz" type="number" step="any" value="0">
+            </div>
+            <div class="row">
+              <div class="field">
+                <label for="layerLimitMode">侧边界的位置输入方式</label>
+                <select id="layerLimitMode">
+                  <option value="point">输入边界经过点 S（推荐）</option>
+                  <option value="threshold">直接输入投影位置 K（高级）</option>
+                </select>
+              </div>
+            </div>
+            <div id="layerLimitPointFields">
+              <label>侧边界经过点 S</label>
+              <div class="coord-grid">
+                <span></span><span class="axis">X</span><span class="axis">Y</span><span class="axis">Z</span>
+                <span class="point-name">S</span><input id="lsx" type="number" step="any" value="0"><input id="lsy" type="number" step="any" value="0"><input id="lsz" type="number" step="any" value="0">
+              </div>
+              <button class="ghost" id="limitPointFromA" type="button">直接使用 A 点的位置</button>
+              <p class="help">S 的 X、Y 同时用于计算并显示每一层对应的 Z 坐标。</p>
+            </div>
+            <div id="layerLimitThresholdField" class="field hidden">
+              <label for="layerLimitK">沿参考轴的投影位置 K</label>
+              <input id="layerLimitK" type="number" step="any" value="0">
+            </div>
+            <p class="help">参考轴决定“往哪个方向判断”，橙色界面本身与该参考轴垂直。数学表达式 m·X 与 K 会在右侧结果中自动给出。</p>
+          </div>
+          </div>
+
+          <details class="advanced-options">
+            <summary>LAMMPS 区域、原子组名称与输出精度（高级）</summary>
+            <div class="details-body">
+              <div class="field"><label for="layerLimitId">侧边界区域名称</label><input id="layerLimitId" value="layer_limit"></div>
+              <div class="row">
+                <div class="field"><label for="upperPrefix">每个上层的名称前缀</label><input id="upperPrefix" value="upper"></div>
+                <div class="field"><label for="lowerPrefix">每个下层的名称前缀</label><input id="lowerPrefix" value="lower"></div>
+              </div>
+              <div class="row">
+                <div class="field"><label for="upperUnionGroup">全部上层的原子组名称</label><input id="upperUnionGroup" value="upper_atom"></div>
+                <div class="field"><label for="lowerUnionGroup">全部下层的原子组名称</label><input id="lowerUnionGroup" value="lower_atom"></div>
+              </div>
+              <div class="row">
+                <div class="field"><label for="moveGroup">除上下层外的原子组名称</label><input id="moveGroup" value="move_atom"></div>
+                <div class="field">
+                  <label for="layerPrecision">输出小数位</label>
+                  <select id="layerPrecision"><option>4</option><option selected>8</option><option>12</option></select>
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <div id="layerMessage" class="message error"></div>
           <div class="actions">
-            <button class="primary" id="calcTetra">计算四个面并生成命令</button>
-            <button class="secondary" id="tetraExample">恢复示例</button>
+            <button class="primary" id="calcLayers">计算原子层并生成命令</button>
+            <button class="secondary" id="layerExample">载入两排倾斜面示例</button>
           </div>
         </div>
 
-        <div class="card">
-          <h2>四面体结果</h2>
+        <div class="card result-card">
+          <h2>倾斜原子层结果</h2>
           <div class="result-grid">
-            <div class="metric"><span>体积</span><strong id="volumeOut">—</strong></div>
-            <div class="metric"><span>内部选取方式</span><strong>4 个 inward half-space 的交集</strong></div>
+            <div class="metric"><span>指向上层的方向 n</span><strong id="layerNormalOut">—</strong></div>
+            <div class="metric"><span>中心倾斜面方程</span><strong id="layerEquationOut">—</strong></div>
+            <div class="metric"><span>生成的上下层数量</span><strong id="layerCountOut">—</strong></div>
+            <div class="metric"><span>上层 / 下层总厚度</span><strong id="layerThicknessOut">—</strong></div>
+            <div class="metric"><span>侧边界保留条件</span><strong id="layerLimitOut">—</strong></div>
+            <div class="metric"><span>逐层 Z 坐标的取样 X/Y</span><strong id="layerVerticalSampleOut">—</strong></div>
           </div>
-          <h3>计算说明</h3>
-          <div id="tetraExplanation" class="explanation" aria-live="polite">输入四个顶点后自动生成计算说明。</div>
-          <h3>LAMMPS 命令</h3>
-          <pre id="tetraCode">输入四个顶点后点击“计算四个面并生成命令”。</pre>
+          <h3>原子层截面预览</h3>
+          <div class="diagram-toolbar">
+            <div class="field">
+              <label for="layerDiagramProjection">预览使用的坐标面</label>
+              <select id="layerDiagramProjection">
+                <option value="auto">自动选择最清晰投影</option>
+                <option value="xz">X–Z</option>
+                <option value="xy">X–Y</option>
+                <option value="yz">Y–Z</option>
+              </select>
+            </div>
+          </div>
+          <div class="diagram-shell">
+            <svg id="layerDiagram" viewBox="0 0 720 360" role="img" aria-label="倾斜原子层与垂直裁剪平面的动态截面图"></svg>
+          </div>
+          <div id="layerDiagramCaption" class="diagram-caption">参数有效后自动绘制。</div>
+          <h3>每一层的选择范围与 Z 坐标</h3>
+          <div id="layerExplanation" class="explanation" aria-live="polite">输入三点与各层厚度后自动生成区间说明。</div>
+          <h3>可复制的 LAMMPS 原子层命令</h3>
+          <pre id="layerCode" class="command-scroll">输入参数后点击“计算原子层并生成命令”。</pre>
           <div class="actions">
-            <button class="secondary" data-copy="tetraCode" data-message="tetraMessage">复制 LAMMPS 命令</button>
+            <button class="secondary" data-copy="layerCode" data-message="layerMessage">复制原子层命令</button>
           </div>
-          <p class="help">程序自动让每个面的法向量指向对面的顶点，因此四个 face 均可使用 side in，并通过 intersect 得到四面体内部。</p>
+          <p class="help">任意倾斜薄层不能用轴对齐的 block 精确表示，因此每一层由两个厚度边界 plane 与可选裁剪 plane 的 intersect 构成。所有距离固定使用 units box。</p>
         </div>
       </div>
-    </section>
 
-    <section class="card paste-card">
-      <h2>快速粘贴 OVITO 坐标</h2>
-      <p class="help">每行填写一个点的 <code>x y z</code>，逗号、括号和空格均可。前三行可导入平面，前四行可导入四面体。</p>
-      <textarea id="pasteArea" placeholder="例如：
-(10, 20, 30)
-(20, 20, 30)
-(10, 30, 40)"></textarea>
-      <div id="pasteMessage" class="message error"></div>
-      <div class="actions">
-        <button class="secondary" id="pastePlane">导入平面前三点</button>
-        <button class="secondary" id="pasteTetra">导入四面体前四点</button>
+      <div class="card paste-card">
+        <h2>沿倾斜面的位移与 XYZ 分量</h2>
+        <p class="help form-intro">输入倾斜面内的两个方向分量，自动换算成可直接用于 LAMMPS 的 X、Y、Z 位移。</p>
+        <div class="displacement-layout">
+          <div>
+            <div class="field">
+              <label for="moveDirectionSource">第一个面内位移方向</label>
+              <select id="moveDirectionSource">
+                <option value="ab">沿 A→B 方向</option>
+                <option value="ac">沿 A→C 方向</option>
+                <option value="custom">使用自定义面内方向</option>
+              </select>
+            </div>
+            <div id="customMoveDirection" class="coord-grid hidden">
+              <span></span><span class="axis">X</span><span class="axis">Y</span><span class="axis">Z</span>
+              <span class="point-name">V</span><input id="mvx" type="number" step="any" value="1"><input id="mvy" type="number" step="any" value="0"><input id="mvz" type="number" step="any" value="0">
+            </div>
+            <div class="row">
+              <div class="field">
+                <label for="alongMoveDistance">沿第一个方向的距离（Å）</label>
+                <input id="alongMoveDistance" type="number" step="any" value="0.2768">
+              </div>
+              <div class="field">
+                <label for="paperMoveDistance">面内横向距离（垂直于第一个方向，Å）</label>
+                <input id="paperMoveDistance" type="number" step="any" value="0">
+              </div>
+            </div>
+            <p class="help">第二个方向也位于倾斜面内，并与第一个方向垂直。两个距离都可以输入正数或负数。</p>
+            <p class="help">默认对称移动：全部上层移动 +Δ，全部下层移动 −Δ。</p>
+            <div id="displaceMessage" class="message error"></div>
+            <div class="actions"><button class="primary" id="calcDisplacement">计算并生成位移命令</button></div>
+          </div>
+
+          <div>
+            <div class="result-grid">
+              <div class="metric"><span>第一个面内单位方向 t</span><strong id="tangentOut">—</strong></div>
+              <div class="metric"><span>与 t 垂直的面内方向 p</span><strong id="paperDirectionOut">—</strong></div>
+              <div class="metric"><span>全部上层的 XYZ 位移</span><strong id="upperMoveOut">—</strong></div>
+              <div class="metric"><span>全部下层的 XYZ 位移</span><strong id="lowerMoveOut">—</strong></div>
+            </div>
+            <h3>两个面内距离如何换算为 XYZ</h3>
+            <div id="displaceExplanation" class="explanation" aria-live="polite">输入位移距离后自动投影到 X、Y、Z。</div>
+            <h3>LAMMPS 位移命令</h3>
+            <pre id="displaceCode">输入位移距离后自动生成 displace_atoms 命令。</pre>
+            <div class="actions">
+              <button class="secondary" data-copy="displaceCode" data-message="displaceMessage">复制位移命令</button>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -398,6 +886,7 @@
   <script>
     const $ = id => document.getElementById(id);
     const EPS = 1e-12;
+    const add = (a,b) => a.map((v,i) => v+b[i]);
     const sub = (a,b) => a.map((v,i) => v-b[i]);
     const dot = (a,b) => a.reduce((s,v,i) => s+v*b[i],0);
     const cross = (a,b) => [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
@@ -455,7 +944,7 @@
       const atomskInput=$("atomskInput").value.trim(), atomskOutput=$("atomskOutput").value.trim();
       const atomskTolerance=Number($("atomskTolerance").value);
       if (![A,B,C].every(validPoint)) return showMessage("planeMessage","请完整输入所有坐标值。");
-      if (!validId(id)) return showMessage("planeMessage","Region ID 只能包含英文字母、数字和下划线，且不能以数字开头。");
+      if (!validId(id)) return showMessage("planeMessage","LAMMPS 区域名称只能包含英文字母、数字和下划线，且不能以数字开头。");
       if (!["in","out"].includes(selectedSide)) return showMessage("planeMessage","请选择有效的半空间方向。");
       if (!atomskInput || !atomskOutput) return showMessage("planeMessage","请填写 Atomsk 输入文件和输出文件名。");
       if (!Number.isFinite(atomskTolerance) || atomskTolerance<0) return showMessage("planeMessage","Atomsk 平面容差必须是大于或等于 0 的数值。");
@@ -480,13 +969,13 @@
       const oppositeSide=selectedSide==="in" ? "out" : "in";
       const selectedRegionId=`${id}_${selectedSide}`, oppositeRegionId=`${id}_${oppositeSide}`;
       const selectedIsIn=selectedSide==="in";
-      const sideName=selectedIsIn ? "法向正侧" : "法向反侧";
-      const sideRelation=selectedIsIn ? "≥" : "≤";
-      $("sideLabel").textContent=`所选空间（side ${selectedSide}）`;
+      const sideName=selectedIsIn ? "+n 方向一侧" : "−n 方向一侧";
+      const sideRelation=selectedIsIn ? "≥" : "<";
+      $("sideLabel").textContent=`LAMMPS 保留条件（side ${selectedSide}）`;
       $("sideOut").textContent=`n·(X−A) ${sideRelation} 0`;
       const method = mode==="three"
-        ? `求解方式：由平面上的三点 A、B、C 确定。\n坐标：A=${vectorText(A,precision)}，B=${vectorText(B,precision)}，C=${vectorText(C,precision)}。`
-        : `求解方式：由边界线 A→B 与延伸方向 E 确定。\n坐标：A=${vectorText(A,precision)}，B=${vectorText(B,precision)}，E=${vectorText(C,precision)}。`;
+        ? `平面由三个原子 A、B、C 确定。\n坐标：A=${vectorText(A,precision)}，B=${vectorText(B,precision)}，C=${vectorText(C,precision)}。`
+        : `平面由边界线 A→B 和延伸方向 E 确定。\n坐标：A=${vectorText(A,precision)}，B=${vectorText(B,precision)}，E=${vectorText(C,precision)}。`;
       $("planeExplanation").textContent =
 `${method}
 单位法向量：n=${vectorText(n,precision)}。
@@ -515,7 +1004,7 @@ write_dump ${id}_atoms custom ${id}_atoms.lammpstrj id type x y z`;
       const atomskCutDistance=clean(selectedIsIn ? atomskTolerance : -atomskTolerance,precision);
       const rotateForward=rotation.angle<EPS ? "" : ` -rotate ${rotationAxis} ${angle}`;
       const rotateBackward=rotation.angle<EPS ? "" : ` -rotate ${rotationAxis} ${inverseAngle}`;
-      $("atomskHeading").textContent=`Atomsk 命令：删除${sideName}（side ${selectedSide}）`;
+      $("atomskHeading").textContent=`Atomsk 删除命令：删除${sideName}（side ${selectedSide}）`;
       $("atomskExplanation").textContent =
 `删除与 LAMMPS side ${selectedSide} 对应的${sideName}，即 n·(X−A) ${sideRelation} 0 的半空间。
 距平面 ${cutDistance} Å 内的原子将保留，避免旋转和舍入误差造成误删。
@@ -531,80 +1020,678 @@ write_dump ${id}_atoms custom ${id}_atoms.lammpstrj id type x y z`;
       $("calcPlane").click();
     });
 
-    function inwardFace(point, p2, p3, opposite) {
-      let n=cross(sub(p2,point),sub(p3,point));
-      if (norm(n)<EPS) throw new Error("至少有三个顶点共线，无法构成四面体。");
-      if (dot(n,sub(opposite,point))<0) n=scale(n,-1);
-      return {point, n:normalized(n)};
+    const HEXA_POINT_NAMES=["A","B","C","D","E","F","G","H"];
+    const HEXA_POINT_PREFIXES=["ha","hb","hc","hd","he","hf","hg","hh"];
+    const HEXA_FACE_DEFINITIONS=[
+      {label:"平行面 1 A-B-C-D",indices:[0,1,2,3]},
+      {label:"平行面 2 E-F-G-H",indices:[4,5,6,7]},
+      {label:"侧面 A-B-F-E",indices:[0,1,5,4]},
+      {label:"侧面 B-C-G-F",indices:[1,2,6,5]},
+      {label:"侧面 C-D-H-G",indices:[2,3,7,6]},
+      {label:"侧面 D-A-E-H",indices:[3,0,4,7]}
+    ];
+
+    function averagePoint(points) {
+      return points.reduce((sum,point)=>add(sum,point),[0,0,0]).map(value=>value/points.length);
     }
 
-    $("calcTetra").addEventListener("click", () => {
-      clearMessage("tetraMessage");
-      const A=readPoint("ta"), B=readPoint("tb"), C=readPoint("tc"), Dp=readPoint("td");
-      const id=$("tetraId").value.trim(), precision=Number($("tetraPrecision").value), units=$("tetraUnits").value;
-      if (![A,B,C,Dp].every(validPoint)) return showMessage("tetraMessage","请完整输入四个顶点坐标。");
-      if (!validId(id)) return showMessage("tetraMessage","Region ID 只能包含英文字母、数字和下划线，且不能以数字开头。");
-      const signed6=dot(sub(B,A),cross(sub(C,A),sub(Dp,A)));
-      if (Math.abs(signed6)<EPS) return showMessage("tetraMessage","四个点共面或过于接近，不能构成具有体积的四面体。");
-      let faces;
-      try {
-        faces=[
-          inwardFace(B,C,Dp,A),
-          inwardFace(A,Dp,C,B),
-          inwardFace(A,B,Dp,C),
-          inwardFace(A,C,B,Dp)
-        ];
-      } catch(e) { return showMessage("tetraMessage",e.message); }
-      const faceIds=faces.map((_,i)=>`${id}_f${i+1}`);
-      const lines=faces.map((f,i)=>regionPlane(faceIds[i],f.point,f.n,"in",units,precision));
-      $("volumeOut").textContent=`${clean(Math.abs(signed6)/6,precision)} Å³`;
-      $("tetraExplanation").textContent =
-`顶点：A=${vectorText(A,precision)}，B=${vectorText(B,precision)}，C=${vectorText(C,precision)}，D=${vectorText(Dp,precision)}。
-四面体体积：${clean(Math.abs(signed6)/6,precision)} Å³。
-四个面的法向量均已自动指向对面顶点，因此每个面使用 side in；四个半空间的交集为四面体内部。`;
-      $("tetraCode").textContent =
-`${lines.join("\n")}
+    function prepareHexaPoints(rawPoints,mode,tolerance) {
+      const points=rawPoints.map(point=>[...point]);
+      const axisOptions={
+        yz:{index:0,plane:"YZ",coordinate:"X"},
+        xz:{index:1,plane:"XZ",coordinate:"Y"},
+        xy:{index:2,plane:"XY",coordinate:"Z"}
+      };
+      const axis=axisOptions[mode] || null;
+      if (!axis) return {points,axis:null};
+      const firstValues=points.slice(0,4).map(point=>point[axis.index]);
+      const secondValues=points.slice(4).map(point=>point[axis.index]);
+      const firstAverage=firstValues.reduce((sum,value)=>sum+value,0)/4;
+      const secondAverage=secondValues.reduce((sum,value)=>sum+value,0)/4;
+      const firstDeviation=Math.max(...firstValues.map(value=>Math.abs(value-firstAverage)));
+      const secondDeviation=Math.max(...secondValues.map(value=>Math.abs(value-secondAverage)));
+      if (firstDeviation>tolerance) {
+        throw new Error(`平行面 1 不是有效的 ${axis.plane} 面：A–D 的 ${axis.coordinate} 坐标最大偏差为 ${firstDeviation} Å，超过容差 ${tolerance} Å。`);
+      }
+      if (secondDeviation>tolerance) {
+        throw new Error(`平行面 2 不是有效的 ${axis.plane} 面：E–H 的 ${axis.coordinate} 坐标最大偏差为 ${secondDeviation} Å，超过容差 ${tolerance} Å。`);
+      }
+      if (Math.abs(secondAverage-firstAverage)<=Math.max(tolerance,EPS)) {
+        throw new Error(`两张 ${axis.plane} 平行面的位置相同或过近，无法形成具有体积的六面体。`);
+      }
+      points.forEach((point,index)=>point[axis.index]=index<4 ? firstAverage : secondAverage);
+      return {
+        points,
+        axis:{...axis,firstAverage,secondAverage,firstDeviation,secondDeviation,separation:Math.abs(secondAverage-firstAverage)}
+      };
+    }
 
-region ${id} intersect 4 ${faceIds.join(" ")}
+    function buildHexaFace(points,definition,center,tolerance) {
+      const vertices=definition.indices.map(index=>points[index]);
+      let n=cross(sub(vertices[1],vertices[0]),sub(vertices[2],vertices[0]));
+      if (norm(n)<EPS) throw new Error(`${definition.label} 的前三个点共线，无法确定平面。`);
+      n=normalized(n);
+      const fourthDistance=Math.abs(dot(n,sub(vertices[3],vertices[0])));
+      if (fourthDistance>tolerance) {
+        throw new Error(`${definition.label} 的四个点不共面：第 4 点距前三点平面 ${fourthDistance} Å，超过容差 ${tolerance} Å。`);
+      }
+      for (let index=0;index<4;index++) {
+        const edge1=sub(vertices[(index+1)%4],vertices[index]);
+        const edge2=sub(vertices[(index+2)%4],vertices[(index+1)%4]);
+        const turn=cross(edge1,edge2);
+        if (norm(turn)<EPS || dot(normalized(turn),n)<1e-8) {
+          throw new Error(`${definition.label} 的顶点没有沿四边形边界连续排列，或该面不是凸四边形。请按界面给出的字母顺序重新选择原子。`);
+        }
+      }
+      const centerDistance=dot(n,sub(center,vertices[0]));
+      if (Math.abs(centerDistance)<=Math.max(tolerance,EPS)) {
+        throw new Error(`${definition.label} 穿过六面体中心，顶点对应关系可能不正确。`);
+      }
+      if (centerDistance<0) n=scale(n,-1);
+      return {label:definition.label,indices:definition.indices,point:vertices[0],n,fourthDistance};
+    }
+
+    function hexaVolume(points,faces,center) {
+      let volume=0;
+      faces.forEach(face => {
+        [[0,1,2],[0,2,3]].forEach(triangle => {
+          const [a,b,c]=triangle.map(localIndex=>points[face.indices[localIndex]]);
+          volume+=Math.abs(dot(sub(a,center),cross(sub(b,center),sub(c,center))))/6;
+        });
+      });
+      return volume;
+    }
+
+    function calculateHexahedron() {
+      clearMessage("hexaMessage");
+      try {
+        const rawPoints=HEXA_POINT_PREFIXES.map(readPoint);
+        if (!rawPoints.every(validPoint)) throw new Error("请完整输入 A 到 H 的八个顶点坐标。");
+        const id=$("hexaId").value.trim();
+        const precision=Number($("hexaPrecision").value), units=$("hexaUnits").value;
+        const tolerance=Number($("hexaTolerance").value);
+        const angleTolerance=Number($("hexaAngleTolerance").value);
+        const mode=$("hexaParallelMode").value;
+        if (!validId(id)) throw new Error("LAMMPS 区域名称只能包含英文字母、数字和下划线，且不能以数字开头。");
+        if (!Number.isFinite(tolerance) || tolerance<0) throw new Error("共面与轴向检查容差必须是大于或等于 0 的数值。");
+        if (!Number.isFinite(angleTolerance) || angleTolerance<0 || angleTolerance>10) throw new Error("平行角度容差必须在 0° 到 10° 之间。");
+        for (let i=0;i<rawPoints.length;i++) {
+          for (let j=i+1;j<rawPoints.length;j++) {
+            if (norm(sub(rawPoints[i],rawPoints[j]))<=Math.max(tolerance,EPS)) {
+              throw new Error(`顶点 ${HEXA_POINT_NAMES[i]} 与 ${HEXA_POINT_NAMES[j]} 重合或距离小于几何容差。`);
+            }
+          }
+        }
+
+        const prepared=prepareHexaPoints(rawPoints,mode,tolerance);
+        const points=prepared.points;
+        const center=averagePoint(points);
+        const faces=HEXA_FACE_DEFINITIONS.map(definition=>buildHexaFace(points,definition,center,tolerance));
+        const parallelCosine=Math.max(-1,Math.min(1,Math.abs(dot(faces[0].n,faces[1].n))));
+        const parallelAngle=Math.acos(parallelCosine)*180/Math.PI;
+        if (parallelAngle>angleTolerance+1e-10) {
+          throw new Error(`A-B-C-D 与 E-F-G-H 的夹角为 ${parallelAngle}°，超过平行角度容差 ${angleTolerance}°。`);
+        }
+        faces.forEach(face => {
+          points.forEach((point,index) => {
+            const distance=dot(face.n,sub(point,face.point));
+            if (distance<-tolerance-1e-10) {
+              throw new Error(`顶点 ${HEXA_POINT_NAMES[index]} 位于 ${face.label} 的外侧。六面体可能不是凸体，或两张平行面的顶点对应顺序不正确。`);
+            }
+          });
+        });
+        const volume=hexaVolume(points,faces,center);
+        if (!Number.isFinite(volume) || volume<=EPS) throw new Error("六面体体积为 0 或过小，请检查八个顶点。");
+
+        const faceIds=faces.map((_,index)=>`${id}_f${index+1}`);
+        const planeLines=faces.map((face,index)=>regionPlane(faceIds[index],face.point,face.n,"in",units,precision));
+        const faceSummary=faces.map((face,index)=>`${faceIds[index]}（${face.label}）：n=${vectorText(face.n,precision)}`).join("\n");
+        const parallelText=prepared.axis
+          ? `${prepared.axis.plane}；${prepared.axis.coordinate}=${clean(prepared.axis.firstAverage,precision)} / ${clean(prepared.axis.secondAverage,precision)} Å`
+          : `任意方向；两面夹角 ${clean(parallelAngle,precision)}°`;
+        const snappingText=prepared.axis
+          ? `所选 ${prepared.axis.plane} 平行面已严格对齐到 ${prepared.axis.coordinate}=${clean(prepared.axis.firstAverage,precision)} Å 和 ${clean(prepared.axis.secondAverage,precision)} Å；两面间距为 ${clean(prepared.axis.separation,precision)} Å。输入坐标的最大修正量为 ${clean(Math.max(prepared.axis.firstDeviation,prepared.axis.secondDeviation),precision)} Å。`
+          : `A-B-C-D 与 E-F-G-H 的法向夹角为 ${clean(parallelAngle,precision)}°，小于设置的 ${clean(angleTolerance,precision)}° 容差。`;
+
+        $("hexaVolumeOut").textContent=`${clean(volume,precision)} Å³`;
+        $("hexaParallelOut").textContent=parallelText;
+        $("hexaGeometryOut").textContent="6 面共面、凸且闭合";
+        $("hexaExplanation").textContent =
+`顶点顺序：平行面 1 为 A→B→C→D，平行面 2 为 E→F→G→H；对应连接边为 A–E、B–F、C–G、D–H。
+${snappingText}
+六面体中心：${vectorText(center,precision)}；体积：${clean(volume,precision)} Å³。
+六个面的方向均已自动转向内部，因此全部使用 side in：
+${faceSummary}
+六个半空间通过 intersect 6 取交集，得到六面体内部原子。`;
+        $("hexaCode").textContent =
+`${planeLines.join("\n")}
+
+region ${id} intersect 6 ${faceIds.join(" ")}
 group ${id}_atoms region ${id}
 group ${id}_outside subtract all ${id}_atoms
 
 variable n_${id} equal count(${id}_atoms)
 run 0
-print "Atoms inside tetrahedron = \${n_${id}}"
+print "Atoms inside hexahedron = \${n_${id}}"
 write_dump ${id}_atoms custom ${id}_atoms.lammpstrj id type x y z`;
+      } catch(e) {
+        $("hexaVolumeOut").textContent="—";
+        $("hexaParallelOut").textContent="—";
+        $("hexaGeometryOut").textContent="未通过";
+        $("hexaExplanation").textContent="请根据左侧提示修正八个顶点或几何容差。";
+        $("hexaCode").textContent="请修正输入参数后重新计算。";
+        showMessage("hexaMessage",e.message);
+      }
+    }
+
+    $("calcHexa").addEventListener("click",calculateHexahedron);
+    $("hexaExample").addEventListener("click", () => {
+      const values={
+        hax:0,hay:0,haz:0,hbx:0,hby:10,hbz:0,hcx:0,hcy:10,hcz:10,hdx:0,hdy:0,hdz:10,
+        hex:12,hey:1,hez:1,hfx:12,hfy:9,hfz:1,hgx:12,hgy:9,hgz:9,hhx:12,hhy:1,hhz:9
+      };
+      Object.entries(values).forEach(([fieldId,value])=>$(fieldId).value=value);
+      $("hexaParallelMode").value="yz";
+      $("hexaId").value="hexa";
+      calculateHexahedron();
     });
 
-    $("tetraExample").addEventListener("click", () => {
-      const values={tax:0,tay:0,taz:0,tbx:10,tby:0,tbz:0,tcx:0,tcy:10,tcz:0,tdx:0,tdy:0,tdz:10};
-      Object.entries(values).forEach(([id,v])=>$(id).value=v);
-      $("tetraId").value="tetra";
-      $("calcTetra").click();
+    function getLayerGeometry() {
+      const A=readPoint("la"), B=readPoint("lb"), C=readPoint("lc");
+      if (![A,B,C].every(validPoint)) throw new Error("请完整输入倾斜面 A、B、C 的坐标。");
+      let n=cross(sub(B,A),sub(C,A));
+      if (norm(n)<EPS) throw new Error("倾斜面的三个点共线或过于接近，无法确定唯一平面。");
+      n=normalized(n);
+      if ($("layerNormalDirection").value==="reverse") n=scale(n,-1);
+      const precision=Number($("layerPrecision").value);
+      return {A,B,C,n,precision};
+    }
+
+    function projectedUnitDirection(reference,n,errorMessage) {
+      if (!validPoint(reference)) throw new Error(errorMessage);
+      const projected=sub(reference,scale(n,dot(reference,n)));
+      if (norm(projected)<EPS) throw new Error("所选方向与倾斜面法向平行或长度过小，无法得到面内方向。");
+      return normalized(projected);
+    }
+
+    function getLayerLimit(geometry) {
+      const {A,B,C,n,precision}=geometry;
+      const enabled=$("useLayerLimit").checked;
+      const source=enabled ? $("layerLimitDirection").value : "ab";
+      let reference,sourceName;
+      if (source==="ab") { reference=sub(B,A); sourceName="A→B"; }
+      else if (source==="ac") { reference=sub(C,A); sourceName="A→C"; }
+      else { reference=readPoint("lv"); sourceName="自定义向量 M"; }
+      const m=projectedUnitDirection(reference,n,"请完整输入自定义裁剪方向向量 M。");
+      const side=enabled ? $("layerLimitSide").value : "greater";
+      const relation=side==="greater" ? "≥" : "<";
+      const regionSide=side==="greater" ? "in" : "out";
+      const id=$("layerLimitId").value.trim();
+      if (enabled && !validId(id)) throw new Error("侧边界区域名称只能包含英文字母、数字和下划线，且不能以数字开头。");
+
+      let S,K,mode=enabled ? $("layerLimitMode").value : "point";
+      if (!enabled) {
+        S=[...A];
+        K=dot(m,S);
+      } else if (mode==="point") {
+        S=readPoint("ls");
+        if (!validPoint(S)) throw new Error("请完整输入裁剪平面经过点 S。");
+        K=dot(m,S);
+      } else {
+        K=Number($("layerLimitK").value);
+        if (!Number.isFinite(K)) throw new Error("裁剪阈值 K 必须是有效数值。");
+        const q0=K-dot(m,A);
+        S=add(A,scale(m,q0));
+      }
+      return {
+        enabled,sourceName,m,S,K,mode,id,side,relation,regionSide,
+        q0:dot(m,sub(S,A)),
+        condition:`m·X ${relation} ${clean(K,precision)}`
+      };
+    }
+
+    function getLayerGroupIds() {
+      const upperGroup=$("upperUnionGroup").value.trim();
+      const lowerGroup=$("lowerUnionGroup").value.trim();
+      const remainingGroup=$("moveGroup").value.trim();
+      const ids=[upperGroup,lowerGroup,remainingGroup];
+      if (!ids.every(validId)) throw new Error("LAMMPS 原子组名称只能包含英文字母、数字和下划线，且不能以数字开头。");
+      if (ids.includes("all")) throw new Error("all 是 LAMMPS 内置原子组，不能用作这里的输出组 ID。");
+      if (new Set(ids).size!==ids.length) throw new Error("上层、下层和其余原子组 ID 必须互不相同。");
+      return {upperGroup,lowerGroup,remainingGroup};
+    }
+
+    function getLayerConfiguration() {
+      const count=Number($("layerCount").value);
+      if (!Number.isInteger(count) || count<1 || count>20) throw new Error("上下层排数必须是 1 到 20 之间的整数。");
+      const tolerance=Number($("layerTolerance").value);
+      if (!Number.isFinite(tolerance) || tolerance<0) throw new Error("中心面每侧的留空距离必须是大于或等于 0 的数值。");
+      const upperPrefix=$("upperPrefix").value.trim(), lowerPrefix=$("lowerPrefix").value.trim();
+      if (![upperPrefix,lowerPrefix].every(validId)) throw new Error("上下层名称前缀只能包含英文字母、数字和下划线，且不能以数字开头。");
+      const thicknesses=[];
+      for (let i=1;i<=count;i++) {
+        const upper=Number($("upperThickness"+i)?.value), lower=Number($("lowerThickness"+i)?.value);
+        if (!Number.isFinite(upper) || upper<=0 || !Number.isFinite(lower) || lower<=0) {
+          throw new Error(`第 ${i} 排的上层和下层厚度都必须是大于 0 的数值。`);
+        }
+        thicknesses.push({upper,lower});
+      }
+      const upperIds=thicknesses.map((_,i)=>`${upperPrefix}_${i+1}`);
+      const lowerIds=thicknesses.map((_,i)=>`${lowerPrefix}_${i+1}`);
+      const {upperGroup,lowerGroup,remainingGroup}=getLayerGroupIds();
+      const groupIds=[...upperIds,...lowerIds,upperGroup,lowerGroup,remainingGroup];
+      if (new Set(groupIds).size!==groupIds.length) throw new Error("自动生成的层名称与总原子组名称重复，请修改高级命名设置。");
+      const regionIds=[...upperIds,...lowerIds].flatMap(id=>[id,`${id}_lo`,`${id}_hi`]);
+      if (new Set(regionIds).size!==regionIds.length) throw new Error("上下层名称前缀会生成重复区域，请修改高级命名设置。");
+      return {count,tolerance,thicknesses,upperIds,lowerIds,upperGroup,lowerGroup,remainingGroup,regionIds};
+    }
+
+    function buildLayerRanges(config) {
+      const ranges=[];
+      let upperCursor=config.tolerance, lowerCursor=-config.tolerance;
+      let totalUpper=0,totalLower=0;
+      config.thicknesses.forEach((pair,index) => {
+        const upperLo=upperCursor, upperHi=upperCursor+pair.upper;
+        ranges.push({id:config.upperIds[index],kind:"upper",lo:upperLo,hi:upperHi});
+        upperCursor=upperHi;
+        totalUpper+=pair.upper;
+        const lowerHi=lowerCursor, lowerLo=lowerCursor-pair.lower;
+        ranges.push({id:config.lowerIds[index],kind:"lower",lo:lowerLo,hi:lowerHi});
+        lowerCursor=lowerLo;
+        totalLower+=pair.lower;
+      });
+      return {ranges,totalUpper,totalLower,sMin:lowerCursor,sMax:upperCursor};
+    }
+
+    function verticalZAt(A,n,s,x,y) {
+      if (Math.abs(n[2])<1e-10) return null;
+      return A[2]+(s-n[0]*(x-A[0])-n[1]*(y-A[1]))/n[2];
+    }
+
+    const SVG_NS="http://www.w3.org/2000/svg";
+    function svgNode(name,attributes={},content="") {
+      const node=document.createElementNS(SVG_NS,name);
+      Object.entries(attributes).forEach(([key,value])=>node.setAttribute(key,String(value)));
+      if (content!=="") node.textContent=content;
+      return node;
+    }
+
+    function renderLayerDiagramError(message) {
+      const svg=$("layerDiagram");
+      svg.textContent="";
+      svg.appendChild(svgNode("rect",{x:0,y:0,width:720,height:360,fill:"#fbfcfd"}));
+      svg.appendChild(svgNode("text",{
+        x:360,y:180,"text-anchor":"middle",fill:"#7a8993","font-size":14,
+        "font-family":"Segoe UI, Microsoft YaHei UI, sans-serif"
+      },message || "参数有效后自动绘制。"));
+      svg.setAttribute("aria-label",message || "倾斜原子层截面图暂不可用");
+      $("layerDiagramCaption").textContent=message || "参数有效后自动绘制。";
+    }
+
+    function renderLayerDiagram(geometry,config,rangeData,limit) {
+      const {A,n,precision}=geometry;
+      const projections={
+        xy:{indices:[0,1],labels:["X","Y"]},
+        xz:{indices:[0,2],labels:["X","Z"]},
+        yz:{indices:[1,2],labels:["Y","Z"]}
+      };
+      let projectionKey=$("layerDiagramProjection").value;
+      if (projectionKey==="auto") {
+        projectionKey=Object.entries(projections)
+          .map(([key,value])=>({key,score:Math.abs(
+            limit.m[value.indices[0]]*n[value.indices[1]]-
+            limit.m[value.indices[1]]*n[value.indices[0]]
+          )}))
+          .sort((left,right)=>right.score-left.score)[0].key;
+      }
+      const projection=projections[projectionKey];
+      const [uIndex,vIndex]=projection.indices;
+      const determinant=Math.abs(limit.m[uIndex]*n[vIndex]-limit.m[vIndex]*n[uIndex]);
+      if (determinant<1e-7) {
+        renderLayerDiagramError(`${projection.labels.join("–")} 投影中两组方向几乎重合，请改用自动投影或另一坐标面。`);
+        return;
+      }
+
+      const normalSpan=Math.max(rangeData.sMax-rangeData.sMin,1);
+      const q0=limit.enabled ? limit.q0 : 0;
+      const qMin=Math.min(-1.5*normalSpan,q0-0.65*normalSpan);
+      const qMax=Math.max(1.5*normalSpan,q0+0.65*normalSpan);
+      const sPadding=Math.max(normalSpan*0.17,0.25);
+      const sMin=rangeData.sMin-sPadding, sMax=rangeData.sMax+sPadding;
+      const project=(q,s)=>[
+        q*limit.m[uIndex]+s*n[uIndex],
+        q*limit.m[vIndex]+s*n[vIndex]
+      ];
+      const fitPoints=[
+        project(qMin,sMin),project(qMin,sMax),project(qMax,sMin),project(qMax,sMax)
+      ];
+      let uMin=Math.min(...fitPoints.map(point=>point[0]));
+      let uMax=Math.max(...fitPoints.map(point=>point[0]));
+      let vMin=Math.min(...fitPoints.map(point=>point[1]));
+      let vMax=Math.max(...fitPoints.map(point=>point[1]));
+      const uPadding=Math.max((uMax-uMin)*0.08,0.1);
+      const vPadding=Math.max((vMax-vMin)*0.1,0.1);
+      uMin-=uPadding; uMax+=uPadding; vMin-=vPadding; vMax+=vPadding;
+      const frame={left:58,right:690,top:24,bottom:316};
+      const toScreen=point=>[
+        frame.left+(point[0]-uMin)/(uMax-uMin)*(frame.right-frame.left),
+        frame.bottom-(point[1]-vMin)/(vMax-vMin)*(frame.bottom-frame.top)
+      ];
+      const screenPoint=(q,s)=>toScreen(project(q,s));
+      const polygonPoints=(qLeft,qRight,sLo,sHi)=>[
+        screenPoint(qLeft,sLo),screenPoint(qRight,sLo),
+        screenPoint(qRight,sHi),screenPoint(qLeft,sHi)
+      ].map(point=>point.map(value=>value.toFixed(2)).join(",")).join(" ");
+
+      const svg=$("layerDiagram");
+      svg.textContent="";
+      svg.appendChild(svgNode("rect",{x:0,y:0,width:720,height:360,fill:"#fbfcfd"}));
+      svg.appendChild(svgNode("rect",{
+        x:frame.left,y:frame.top,width:frame.right-frame.left,height:frame.bottom-frame.top,
+        rx:8,fill:"#ffffff",stroke:"#d7e0e6"
+      }));
+
+      const baseStart=screenPoint(qMin,0), baseEnd=screenPoint(qMax,0);
+      svg.appendChild(svgNode("line",{
+        x1:baseStart[0],y1:baseStart[1],x2:baseEnd[0],y2:baseEnd[1],
+        stroke:"#7f909a","stroke-width":1.5,"stroke-dasharray":"7 6"
+      }));
+
+      rangeData.ranges.forEach(range => {
+        const color=range.kind==="upper" ? "#1679a3" : "#087f7b";
+        svg.appendChild(svgNode("polygon",{
+          points:polygonPoints(qMin,qMax,range.lo,range.hi),
+          fill:color,"fill-opacity":0.12,stroke:color,"stroke-opacity":0.45,"stroke-width":1.2
+        }));
+        let selectedMin=qMin,selectedMax=qMax;
+        if (limit.enabled && limit.side==="greater") selectedMin=q0;
+        if (limit.enabled && limit.side==="less") selectedMax=q0;
+        svg.appendChild(svgNode("polygon",{
+          points:polygonPoints(selectedMin,selectedMax,range.lo,range.hi),
+          fill:color,"fill-opacity":0.76,stroke:color,"stroke-width":1.4
+        }));
+        if (config.count<=6 || range.id.endsWith("_1")) {
+          const labelPoint=screenPoint((selectedMin+selectedMax)/2,(range.lo+range.hi)/2);
+          svg.appendChild(svgNode("text",{
+            x:labelPoint[0],y:labelPoint[1]+4,"text-anchor":"middle",fill:"#ffffff",
+            "font-size":config.count<=3 ? 12 : 10,"font-weight":700,
+            "font-family":"Segoe UI, Microsoft YaHei UI, sans-serif",
+            stroke:color,"stroke-width":2.5,"paint-order":"stroke"
+          },range.id));
+        }
+      });
+
+      if (limit.enabled) {
+        const limitStart=screenPoint(q0,sMin), limitEnd=screenPoint(q0,sMax);
+        svg.appendChild(svgNode("line",{
+          x1:limitStart[0],y1:limitStart[1],x2:limitEnd[0],y2:limitEnd[1],
+          stroke:"#ee6c2c","stroke-width":3
+        }));
+        const direction=limit.side==="greater" ? 1 : -1;
+        const arrowStart=screenPoint(q0,(sMin+sMax)/2);
+        const arrowEnd=screenPoint(q0+direction*normalSpan*0.42,(sMin+sMax)/2);
+        svg.appendChild(svgNode("line",{
+          x1:arrowStart[0],y1:arrowStart[1],x2:arrowEnd[0],y2:arrowEnd[1],
+          stroke:"#ee6c2c","stroke-width":2.5
+        }));
+        const dx=arrowEnd[0]-arrowStart[0],dy=arrowEnd[1]-arrowStart[1];
+        const length=Math.hypot(dx,dy) || 1,ux=dx/length,uy=dy/length;
+        const arrowPoints=[
+          arrowEnd,
+          [arrowEnd[0]-11*ux+5*uy,arrowEnd[1]-11*uy-5*ux],
+          [arrowEnd[0]-11*ux-5*uy,arrowEnd[1]-11*uy+5*ux]
+        ].map(point=>point.map(value=>value.toFixed(2)).join(",")).join(" ");
+        svg.appendChild(svgNode("polygon",{points:arrowPoints,fill:"#ee6c2c"}));
+        svg.appendChild(svgNode("text",{
+          x:limitStart[0]+8,y:Math.max(frame.top+16,limitStart[1]-8),fill:"#b84816",
+          "font-size":12,"font-weight":700,"font-family":"Segoe UI, Microsoft YaHei UI, sans-serif"
+        },"裁剪界面"));
+      }
+
+      const centerLabel=screenPoint(qMin+(qMax-qMin)*0.04,0);
+      svg.appendChild(svgNode("text",{
+        x:centerLabel[0],y:centerLabel[1]-7,fill:"#667985","font-size":11,
+        "font-family":"Segoe UI, Microsoft YaHei UI, sans-serif"
+      },"s=0 中心面"));
+
+      const axisOrigin=[76,298],axisLength=42;
+      svg.appendChild(svgNode("line",{x1:axisOrigin[0],y1:axisOrigin[1],x2:axisOrigin[0]+axisLength,y2:axisOrigin[1],stroke:"#245d78","stroke-width":2}));
+      svg.appendChild(svgNode("polygon",{points:`${axisOrigin[0]+axisLength},${axisOrigin[1]} ${axisOrigin[0]+axisLength-9},${axisOrigin[1]-4} ${axisOrigin[0]+axisLength-9},${axisOrigin[1]+4}`,fill:"#245d78"}));
+      svg.appendChild(svgNode("line",{x1:axisOrigin[0],y1:axisOrigin[1],x2:axisOrigin[0],y2:axisOrigin[1]-axisLength,stroke:"#245d78","stroke-width":2}));
+      svg.appendChild(svgNode("polygon",{points:`${axisOrigin[0]},${axisOrigin[1]-axisLength} ${axisOrigin[0]-4},${axisOrigin[1]-axisLength+9} ${axisOrigin[0]+4},${axisOrigin[1]-axisLength+9}`,fill:"#245d78"}));
+      svg.appendChild(svgNode("text",{x:axisOrigin[0]+axisLength+7,y:axisOrigin[1]+4,fill:"#245d78","font-size":13,"font-weight":700},projection.labels[0]));
+      svg.appendChild(svgNode("text",{x:axisOrigin[0]-4,y:axisOrigin[1]-axisLength-8,fill:"#245d78","font-size":13,"font-weight":700},projection.labels[1]));
+
+      const condition=limit.enabled ? limit.condition : "未启用侧边界（显示完整薄层）";
+      const caption=`${projection.labels.join("–")} 投影；蓝色为上层，绿色为下层，浅色轮廓为裁剪前范围。${limit.enabled ? `橙线为 m·X=${clean(limit.K,precision)}，箭头指向保留侧。` : ""} ${condition}；n=${vectorText(n,precision)}${limit.enabled ? `，m=${vectorText(limit.m,precision)}` : ""}。`;
+      $("layerDiagramCaption").textContent=caption;
+      svg.setAttribute("aria-label",`倾斜原子层动态截面图。${caption}`);
+    }
+
+    function renderLayerRows() {
+      const saved=new Map();
+      document.querySelectorAll("#layerRows .layer-row").forEach(row => {
+        saved.set(Number(row.dataset.index), {
+          upper:row.querySelector('[data-side="upper"]').value,
+          lower:row.querySelector('[data-side="lower"]').value
+        });
+      });
+      const container=$("layerRows");
+      container.textContent="";
+      const count=Number($("layerCount").value);
+      if (!Number.isInteger(count) || count<1 || count>20) return;
+      for (let i=1;i<=count;i++) {
+        const values=saved.get(i) || {upper:"1",lower:"1"};
+        const row=document.createElement("div");
+        row.className="layer-row";
+        row.dataset.index=i;
+        row.innerHTML=`<span class="pair-index">${i}</span>
+          <input id="upperThickness${i}" data-side="upper" type="number" min="0" step="any" value="${values.upper}" aria-label="第 ${i} 排上层厚度">
+          <input id="lowerThickness${i}" data-side="lower" type="number" min="0" step="any" value="${values.lower}" aria-label="第 ${i} 排下层厚度">`;
+        container.appendChild(row);
+        row.querySelectorAll("input").forEach(input => {
+          input.addEventListener("input", syncLayerCalculations);
+          input.addEventListener("change", syncLayerCalculations);
+        });
+      }
+    }
+
+    function calculateLayerCommands() {
+      clearMessage("layerMessage");
+      try {
+        const geometry=getLayerGeometry();
+        const {A,B,C,n,precision}=geometry;
+        const config=getLayerConfiguration();
+        const limit=getLayerLimit(geometry);
+        if (limit.enabled && config.regionIds.includes(limit.id)) {
+          throw new Error("侧边界区域名称与某一层的自动名称重复，请修改高级命名设置。");
+        }
+        const rangeData=buildLayerRanges(config);
+        const regionLines=[], groupLines=[], intervalLines=[];
+        const samplePoint=limit.enabled ? limit.S : A;
+
+        if (limit.enabled) {
+          regionLines.push(regionPlane(limit.id,limit.S,limit.m,limit.regionSide,"box",precision),"");
+        }
+        rangeData.ranges.forEach(range => {
+          const loPoint=add(A,scale(n,range.lo)), hiPoint=add(A,scale(n,range.hi));
+          const intersectIds=[`${range.id}_lo`,`${range.id}_hi`];
+          if (limit.enabled) intersectIds.push(limit.id);
+          regionLines.push(
+            regionPlane(`${range.id}_lo`,loPoint,n,"in","box",precision),
+            regionPlane(`${range.id}_hi`,hiPoint,n,"out","box",precision),
+            `region ${range.id} intersect ${intersectIds.length} ${intersectIds.join(" ")}`
+          );
+          groupLines.push(`group ${range.id} region ${range.id}`);
+          const zLo=verticalZAt(A,n,range.lo,samplePoint[0],samplePoint[1]);
+          const zHi=verticalZAt(A,n,range.hi,samplePoint[0],samplePoint[1]);
+          const zDescription=zLo===null
+            ? "Z 无唯一有限区间（n_z≈0，该层沿 Z 方向延伸）"
+            : `Z 边界：s=${clean(range.lo,precision)} 时 ${clean(zLo,precision)} Å，s=${clean(range.hi,precision)} 时 ${clean(zHi,precision)} Å；几何范围 ${clean(Math.min(zLo,zHi),precision)}–${clean(Math.max(zLo,zHi),precision)} Å`;
+          intervalLines.push(`${range.id}: ${clean(range.lo,precision)} ≤ s < ${clean(range.hi,precision)} Å；${zDescription}`);
+        });
+
+        const D=-dot(n,A);
+        $("layerNormalOut").textContent=vectorText(n,precision);
+        $("layerEquationOut").textContent=`${clean(n[0],precision)}x + ${clean(n[1],precision)}y + ${clean(n[2],precision)}z + ${clean(D,precision)} = 0`;
+        $("layerCountOut").textContent=`${config.count} 对（${config.count*2} 层）`;
+        $("layerThicknessOut").textContent=`${clean(rangeData.totalUpper,precision)} / ${clean(rangeData.totalLower,precision)} Å`;
+        $("layerLimitOut").textContent=limit.enabled
+          ? `${limit.condition}；m=${vectorText(limit.m,precision)}`
+          : "关闭（不裁剪）";
+        $("layerVerticalSampleOut").textContent=`X=${clean(samplePoint[0],precision)}，Y=${clean(samplePoint[1],precision)}`;
+        const limitExplanation=limit.enabled
+          ? `橙色侧边界使用 ${limit.sourceName} 作为保留方向参考轴：m=${vectorText(limit.m,precision)}。它位于中心倾斜面内，因此橙色界面与中心面垂直（m·n=${clean(dot(limit.m,n),precision)}）。\n侧边界经过 S=${vectorText(limit.S,precision)}，投影位置 K=m·S=${clean(limit.K,precision)}；保留 ${limit.condition}（LAMMPS side ${limit.regionSide}）。`
+          : "侧边界已关闭；每层只由上下两条厚度边界限定。";
+        $("layerExplanation").textContent =
+`中心面由 A=${vectorText(A,precision)}、B=${vectorText(B,precision)}、C=${vectorText(C,precision)} 确定。
+定义法向距离 s=n·(X−A)，n=${vectorText(n,precision)} 指向上层。
+${limitExplanation}
+以下 Z 坐标均在固定取样位置 (X,Y)=(${clean(samplePoint[0],precision)}, ${clean(samplePoint[1],precision)}) 计算；倾斜层在其他 X、Y 处的 Z 会相应改变。
+中心面两侧各排除 ${clean(config.tolerance,precision)} Å；以下半开区间从中心向外依次累计：
+${intervalLines.join("\n")}
+${config.tolerance===0 ? "LAMMPS 将边界归入 side in 而不归入 side out，因此中心面原子仅进入 upper_1，上下层不会重叠。" : `−${clean(config.tolerance,precision)} ≤ s < ${clean(config.tolerance,precision)} Å 的中心区间不属于 upper 或 lower。`}`;
+        $("layerCode").textContent =
+`${regionLines.join("\n")}
+
+${groupLines.join("\n")}
+
+group ${config.upperGroup} union ${config.upperIds.join(" ")}
+group ${config.lowerGroup} union ${config.lowerIds.join(" ")}
+
+group ${config.remainingGroup} subtract all ${config.upperGroup} ${config.lowerGroup}`;
+        renderLayerDiagram(geometry,config,rangeData,limit);
+      } catch(e) {
+        $("layerCode").textContent="请修正输入参数后重新计算。";
+        ["layerNormalOut","layerEquationOut","layerCountOut","layerThicknessOut","layerLimitOut","layerVerticalSampleOut"].forEach(id=>$(id).textContent="—");
+        renderLayerDiagramError(e.message);
+        showMessage("layerMessage",e.message);
+      }
+    }
+
+    function calculateDisplacement() {
+      clearMessage("displaceMessage");
+      try {
+        const {A,B,C,n,precision}=getLayerGeometry();
+        const {upperGroup,lowerGroup}=getLayerGroupIds();
+        const source=$("moveDirectionSource").value;
+        let reference, sourceName;
+        if (source==="ab") { reference=sub(B,A); sourceName="A→B"; }
+        else if (source==="ac") { reference=sub(C,A); sourceName="A→C"; }
+        else { reference=readPoint("mv"); sourceName="自定义向量 V"; }
+        if (!validPoint(reference)) throw new Error("请完整输入自定义面内方向向量 V。");
+        const projected=sub(reference,scale(n,dot(reference,n)));
+        if (norm(projected)<EPS) throw new Error("所选方向与平面法向平行或长度过小，无法得到面内方向。");
+        const tangent=normalized(projected);
+        const paperDirection=normalized(cross(n,tangent));
+        const alongDistance=Number($("alongMoveDistance").value);
+        const paperDistance=Number($("paperMoveDistance").value);
+        if (!Number.isFinite(alongDistance) || !Number.isFinite(paperDistance)) throw new Error("两个位移距离都必须是有效数值。");
+        const upperMove=add(scale(tangent,alongDistance),scale(paperDirection,paperDistance));
+        const lowerMove=scale(upperMove,-1);
+
+        $("tangentOut").textContent=vectorText(tangent,precision);
+        $("paperDirectionOut").textContent=vectorText(paperDirection,precision);
+        $("upperMoveOut").textContent=vectorText(upperMove,precision);
+        $("lowerMoveOut").textContent=vectorText(lowerMove,precision);
+        $("displaceExplanation").textContent =
+`${sourceName} 投影到中心倾斜面并归一化后，得到第一个面内方向 t=${vectorText(tangent,precision)}。
+计算 p=n×t，得到同样位于倾斜面内、且与 t 垂直的横向方向 p=${vectorText(paperDirection,precision)}。
+全部上层位移：Δ=${clean(alongDistance,precision)}t + ${clean(paperDistance,precision)}p = ${vectorText(upperMove,precision)} Å。
+全部下层使用反向位移 −Δ=${vectorText(lowerMove,precision)} Å；位移总长度为 ${clean(norm(upperMove),precision)} Å。`;
+        $("displaceCode").textContent =
+`displace_atoms ${upperGroup} move ${upperMove.map(v=>clean(v,precision)).join(" ")} units box
+displace_atoms ${lowerGroup} move ${lowerMove.map(v=>clean(v,precision)).join(" ")} units box`;
+      } catch(e) {
+        $("displaceCode").textContent="请修正输入参数后重新计算。";
+        showMessage("displaceMessage",e.message);
+      }
+    }
+
+    function syncLayerCalculations() {
+      calculateLayerCommands();
+      calculateDisplacement();
+    }
+
+    function updateLayerLimitControls() {
+      const enabled=$("useLayerLimit").checked;
+      $("layerLimitFields").classList.toggle("hidden",!enabled);
+      $("customLayerLimitDirection").classList.toggle("hidden",$("layerLimitDirection").value!=="custom");
+      const thresholdMode=$("layerLimitMode").value==="threshold";
+      $("layerLimitPointFields").classList.toggle("hidden",thresholdMode);
+      $("layerLimitThresholdField").classList.toggle("hidden",!thresholdMode);
+    }
+
+    $("layerCount").addEventListener("input", () => { renderLayerRows(); syncLayerCalculations(); });
+    $("layerCount").addEventListener("change", () => { renderLayerRows(); syncLayerCalculations(); });
+    $("useLayerLimit").addEventListener("change", () => { updateLayerLimitControls(); syncLayerCalculations(); });
+    $("layerLimitDirection").addEventListener("change", () => { updateLayerLimitControls(); syncLayerCalculations(); });
+    $("layerLimitMode").addEventListener("change", () => { updateLayerLimitControls(); syncLayerCalculations(); });
+    $("limitPointFromA").addEventListener("click", () => {
+      ["x","y","z"].forEach(axis=>$("ls"+axis).value=$("la"+axis).value);
+      syncLayerCalculations();
+    });
+    $("layerDiagramProjection").addEventListener("change",calculateLayerCommands);
+    $("moveDirectionSource").addEventListener("change", () => {
+      $("customMoveDirection").classList.toggle("hidden", $("moveDirectionSource").value!=="custom");
+      calculateDisplacement();
+    });
+    $("calcLayers").addEventListener("click", syncLayerCalculations);
+    $("calcDisplacement").addEventListener("click", calculateDisplacement);
+    $("layerExample").addEventListener("click", () => {
+      const values={lax:0,lay:0,laz:0,lbx:10,lby:0,lbz:10,lcx:0,lcy:10,lcz:0};
+      Object.entries(values).forEach(([id,value])=>$(id).value=value);
+      $("layerNormalDirection").value="forward";
+      $("layerCount").value=2;
+      $("layerTolerance").value=0;
+      $("upperPrefix").value="upper"; $("lowerPrefix").value="lower";
+      $("upperUnionGroup").value="upper_atom"; $("lowerUnionGroup").value="lower_atom"; $("moveGroup").value="move_atom";
+      renderLayerRows();
+      $("upperThickness1").value=2; $("lowerThickness1").value=1;
+      $("upperThickness2").value=1; $("lowerThickness2").value=1;
+      $("useLayerLimit").checked=true;
+      $("layerLimitDirection").value="ab";
+      $("layerLimitSide").value="less";
+      $("layerLimitMode").value="point";
+      $("layerLimitId").value="layer_limit";
+      $("lsx").value=5; $("lsy").value=0; $("lsz").value=5;
+      updateLayerLimitControls();
+      $("moveDirectionSource").value="ab";
+      $("customMoveDirection").classList.add("hidden");
+      $("alongMoveDistance").value=0.2768; $("paperMoveDistance").value=0;
+      syncLayerCalculations();
     });
 
-    function parsePastedPoints() {
-      return $("pasteArea").value.split(/\r?\n/).map(line => {
+    function parsePastedPoints(areaId) {
+      return $(areaId).value.split(/\r?\n/).map(line => {
         const matches=line.match(/[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?/g);
         return matches && matches.length>=3 ? matches.slice(0,3).map(Number) : null;
       }).filter(Boolean);
     }
     function assignPoint(prefix,p) { ["x","y","z"].forEach((axis,i)=>$(prefix+axis).value=p[i]); }
     $("pastePlane").addEventListener("click", () => {
-      clearMessage("pasteMessage");
-      const points=parsePastedPoints();
-      if (points.length<3) return showMessage("pasteMessage","至少需要三行有效坐标，每行包含 x、y、z。");
+      clearMessage("planePasteMessage");
+      const points=parsePastedPoints("planePasteArea");
+      if (points.length<3) return showMessage("planePasteMessage","至少需要三行有效坐标，每行包含 X、Y、Z。");
       assignPoint("a",points[0]); assignPoint("b",points[1]); assignPoint("c",points[2]);
-      $("planeMode").value="three"; $("planeMode").dispatchEvent(new Event("change"));
-      document.querySelector('[data-tab="plane"]').click();
+      $("pastePlane").closest("details").open=false;
       $("calcPlane").click();
     });
-    $("pasteTetra").addEventListener("click", () => {
-      clearMessage("pasteMessage");
-      const points=parsePastedPoints();
-      if (points.length<4) return showMessage("pasteMessage","至少需要四行有效坐标，每行包含 x、y、z。");
-      ["ta","tb","tc","td"].forEach((prefix,i)=>assignPoint(prefix,points[i]));
-      document.querySelector('[data-tab="tetra"]').click();
-      $("calcTetra").click();
+    $("pasteLayers").addEventListener("click", () => {
+      clearMessage("layerPasteMessage");
+      const points=parsePastedPoints("layerPasteArea");
+      if (points.length<3) return showMessage("layerPasteMessage","至少需要三行有效坐标，每行包含 X、Y、Z。");
+      assignPoint("la",points[0]); assignPoint("lb",points[1]); assignPoint("lc",points[2]);
+      $("pasteLayers").closest("details").open=false;
+      syncLayerCalculations();
+    });
+    $("pasteHexa").addEventListener("click", () => {
+      clearMessage("hexaPasteMessage");
+      const points=parsePastedPoints("hexaPasteArea");
+      if (points.length<8) return showMessage("hexaPasteMessage","至少需要八行有效坐标，每行包含 X、Y、Z。");
+      HEXA_POINT_PREFIXES.forEach((prefix,index)=>assignPoint(prefix,points[index]));
+      $("pasteHexa").closest("details").open=false;
+      calculateHexahedron();
     });
 
     document.querySelectorAll("[data-copy]").forEach(button => {
@@ -632,15 +1719,34 @@ write_dump ${id}_atoms custom ${id}_atoms.lammpstrj id type x y z`;
       $(id).addEventListener("change", () => $("calcPlane").click());
     });
     [
-      "tetraId","tax","tay","taz","tbx","tby","tbz","tcx","tcy","tcz",
-      "tdx","tdy","tdz","tetraPrecision","tetraUnits"
+      "hexaParallelMode","hexaId","hax","hay","haz","hbx","hby","hbz",
+      "hcx","hcy","hcz","hdx","hdy","hdz","hex","hey","hez",
+      "hfx","hfy","hfz","hgx","hgy","hgz","hhx","hhy","hhz",
+      "hexaPrecision","hexaUnits","hexaTolerance","hexaAngleTolerance"
     ].forEach(id => {
-      $(id).addEventListener("input", () => $("calcTetra").click());
-      $(id).addEventListener("change", () => $("calcTetra").click());
+      $(id).addEventListener("input",calculateHexahedron);
+      $(id).addEventListener("change",calculateHexahedron);
+    });
+    [
+      "lax","lay","laz","lbx","lby","lbz","lcx","lcy","lcz",
+      "layerNormalDirection","layerTolerance","upperPrefix","lowerPrefix",
+      "upperUnionGroup","lowerUnionGroup","moveGroup","layerPrecision",
+      "layerLimitSide","layerLimitId","lvx","lvy","lvz",
+      "lsx","lsy","lsz","layerLimitK"
+    ].forEach(id => {
+      $(id).addEventListener("input", syncLayerCalculations);
+      $(id).addEventListener("change", syncLayerCalculations);
+    });
+    ["mvx","mvy","mvz","alongMoveDistance","paperMoveDistance"].forEach(id => {
+      $(id).addEventListener("input", calculateDisplacement);
+      $(id).addEventListener("change", calculateDisplacement);
     });
 
     $("calcPlane").click();
-    $("calcTetra").click();
+    calculateHexahedron();
+    renderLayerRows();
+    updateLayerLimitControls();
+    syncLayerCalculations();
   </script>
 </body>
 </html>
