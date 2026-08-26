@@ -1,0 +1,605 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LAMMPS 平面与四面体区域计算器</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #eef3f7;
+      --card: #ffffff;
+      --ink: #14212b;
+      --muted: #5c6c78;
+      --line: #d7e0e6;
+      --accent: #006d77;
+      --accent-dark: #004f56;
+      --soft: #e5f4f3;
+      --warn: #8a4b08;
+      --error: #a12622;
+      --code: #12212b;
+      --code-ink: #d8f3ef;
+      font-family: "Segoe UI", "Microsoft YaHei UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 15% -10%, #d7eeec 0, transparent 34rem),
+        linear-gradient(135deg, var(--bg), #f8fafb);
+    }
+    .shell { width: min(1180px, calc(100% - 32px)); margin: 28px auto 50px; }
+    header {
+      display: flex;
+      justify-content: space-between;
+      gap: 24px;
+      align-items: flex-end;
+      margin-bottom: 20px;
+    }
+    h1 { margin: 0; font-size: clamp(25px, 3vw, 38px); letter-spacing: -.03em; }
+    header p { margin: 8px 0 0; color: var(--muted); }
+    .badge {
+      flex: none;
+      padding: 8px 12px;
+      border-radius: 999px;
+      color: var(--accent-dark);
+      background: var(--soft);
+      font-size: 13px;
+      font-weight: 650;
+    }
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .tab {
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.72);
+      color: var(--muted);
+      border-radius: 10px;
+      padding: 10px 16px;
+      font-weight: 650;
+      cursor: pointer;
+    }
+    .tab.active { color: #fff; border-color: var(--accent); background: var(--accent); }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(360px, .9fr) minmax(420px, 1.1fr);
+      gap: 16px;
+    }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: rgba(255,255,255,.94);
+      box-shadow: 0 12px 30px rgba(20, 40, 50, .07);
+      padding: 19px;
+    }
+    h2 { margin: 0 0 14px; font-size: 18px; }
+    h3 { margin: 20px 0 8px; font-size: 15px; }
+    .help { color: var(--muted); font-size: 13px; line-height: 1.6; }
+    .field { margin-bottom: 13px; }
+    label { display: block; margin-bottom: 6px; color: var(--muted); font-size: 13px; font-weight: 650; }
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid #cbd6dd;
+      border-radius: 9px;
+      background: #fbfcfd;
+      color: var(--ink);
+      padding: 9px 10px;
+      font: inherit;
+      outline: none;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(0,109,119,.12);
+    }
+    .coord-grid {
+      display: grid;
+      grid-template-columns: 38px repeat(3, 1fr);
+      gap: 7px;
+      align-items: center;
+      margin-bottom: 9px;
+    }
+    .coord-grid .axis { color: var(--muted); text-align: center; font-size: 12px; font-weight: 700; }
+    .point-name {
+      text-align: center;
+      font-weight: 750;
+      color: var(--accent-dark);
+    }
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .checkline {
+      display: flex;
+      gap: 9px;
+      align-items: center;
+      margin: 12px 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .checkline input { width: auto; }
+    .actions { display: flex; gap: 9px; flex-wrap: wrap; margin-top: 15px; }
+    button {
+      border: 0;
+      border-radius: 9px;
+      padding: 10px 15px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .primary { color: white; background: var(--accent); }
+    .primary:hover { background: var(--accent-dark); }
+    .secondary { color: var(--accent-dark); background: var(--soft); }
+    .ghost { color: var(--muted); background: #edf1f4; }
+    .result-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .metric {
+      padding: 11px 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #f8fafb;
+    }
+    .metric span { display: block; color: var(--muted); font-size: 12px; margin-bottom: 5px; }
+    .metric strong { font-family: Consolas, monospace; font-size: 13px; overflow-wrap: anywhere; }
+    pre {
+      min-height: 215px;
+      margin: 0;
+      padding: 15px;
+      overflow: auto;
+      border-radius: 11px;
+      background: var(--code);
+      color: var(--code-ink);
+      font: 13px/1.62 Consolas, "Cascadia Mono", monospace;
+      white-space: pre-wrap;
+    }
+    .message {
+      display: none;
+      margin: 12px 0;
+      padding: 10px 12px;
+      border-radius: 9px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .message.show { display: block; }
+    .message.error { color: var(--error); background: #fff0ef; border: 1px solid #f2c8c5; }
+    .message.warn { color: var(--warn); background: #fff8ea; border: 1px solid #efd6a8; }
+    .paste-card { margin-top: 16px; }
+    textarea { min-height: 94px; resize: vertical; font-family: Consolas, monospace; }
+    .hidden { display: none !important; }
+    footer { margin-top: 16px; color: var(--muted); text-align: center; font-size: 12px; }
+
+    @media (max-width: 850px) {
+      header { display: block; }
+      .badge { display: inline-block; margin-top: 12px; }
+      .layout { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div>
+        <h1>LAMMPS 区域计算器</h1>
+        <p>由原子坐标生成平面、半空间与不规则四面体的可直接运行命令。</p>
+      </div>
+      <div class="badge">离线单文件 · 单位 Å · 笛卡尔坐标</div>
+    </header>
+
+    <nav class="tabs" aria-label="计算模式">
+      <button class="tab active" data-tab="plane">平面 / 边界线</button>
+      <button class="tab" data-tab="tetra">四面体</button>
+    </nav>
+
+    <section id="plane" class="panel active">
+      <div class="layout">
+        <div class="card">
+          <h2>输入平面参数</h2>
+          <div class="row">
+            <div class="field">
+              <label for="planeMode">求解方式</label>
+              <select id="planeMode">
+                <option value="three">三个不共线原子</option>
+                <option value="line">两个原子 + 延伸方向</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="planeId">Region ID</label>
+              <input id="planeId" value="boundary_plane">
+            </div>
+          </div>
+
+          <div class="coord-grid">
+            <span></span><span class="axis">X</span><span class="axis">Y</span><span class="axis">Z</span>
+            <span class="point-name">A</span>
+            <input id="ax" type="number" step="any" value="10">
+            <input id="ay" type="number" step="any" value="20">
+            <input id="az" type="number" step="any" value="30">
+            <span class="point-name">B</span>
+            <input id="bx" type="number" step="any" value="20">
+            <input id="by" type="number" step="any" value="20">
+            <input id="bz" type="number" step="any" value="30">
+            <span class="point-name" id="thirdLabel">C</span>
+            <input id="cx" type="number" step="any" value="10">
+            <input id="cy" type="number" step="any" value="30">
+            <input id="cz" type="number" step="any" value="40">
+          </div>
+          <p id="thirdHelp" class="help">C 是平面上的第三个原子，A、B、C 不能共线。</p>
+
+          <label class="checkline">
+            <input id="useInside" type="checkbox">
+            使用一个已知“内部点”自动调整法向方向
+          </label>
+          <div id="insideFields" class="coord-grid hidden">
+            <span></span><span class="axis">X</span><span class="axis">Y</span><span class="axis">Z</span>
+            <span class="point-name">Q</span>
+            <input id="qx" type="number" step="any" value="0">
+            <input id="qy" type="number" step="any" value="0">
+            <input id="qz" type="number" step="any" value="0">
+          </div>
+
+          <div class="row">
+            <div class="field">
+              <label for="planePrecision">输出小数位</label>
+              <select id="planePrecision">
+                <option>4</option><option selected>8</option><option>12</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="planeUnits">LAMMPS 单位</label>
+              <select id="planeUnits"><option value="box">box</option><option value="lattice">lattice</option></select>
+            </div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label for="atomskInput">Atomsk 输入文件</label>
+              <input id="atomskInput" value="input.cfg">
+            </div>
+            <div class="field">
+              <label for="atomskOutput">删除内侧后的输出文件</label>
+              <input id="atomskOutput" value="inside_deleted.cfg">
+            </div>
+          </div>
+          <div class="field">
+            <label for="atomskTolerance">Atomsk 保留平面容差（Å）</label>
+            <input id="atomskTolerance" type="number" step="any" min="0" value="0.001">
+          </div>
+          <div id="planeMessage" class="message error"></div>
+          <div class="actions">
+            <button class="primary" id="calcPlane">计算并生成命令</button>
+            <button class="secondary" id="planeExample">载入 Y–Z 边界示例</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>计算结果</h2>
+          <div class="result-grid">
+            <div class="metric"><span>单位法向量 n</span><strong id="normalOut">—</strong></div>
+            <div class="metric"><span>平面常数 D</span><strong id="constantOut">—</strong></div>
+            <div class="metric"><span>平面方程</span><strong id="equationOut">—</strong></div>
+            <div class="metric"><span>side in 判据</span><strong id="sideOut">n·(X−P) ≥ 0</strong></div>
+          </div>
+          <pre id="planeCode">输入坐标后点击“计算并生成命令”。</pre>
+          <div class="actions">
+            <button class="secondary" data-copy="planeCode">复制全部命令</button>
+          </div>
+          <h3>Atomsk：删除 LAMMPS side in 一侧</h3>
+          <pre id="atomskCode">输入坐标后自动生成 Atomsk 命令。</pre>
+          <div class="actions">
+            <button class="secondary" data-copy="atomskCode">复制 Atomsk 命令</button>
+          </div>
+          <p class="help">Atomsk 的 cut 不直接接受任意笛卡尔法向量，因此命令会先把平面平移到原点并旋转到 XY 平面，删除其 +Z 一侧，再执行逆旋转和平移。默认保留距平面 0.001 Å 内的原子，以免舍入误差误删平面原子。</p>
+          <p class="help">法向量已归一化，LAMMPS 不要求单位法向量，但归一化便于检查。若选错一侧，可交换 side in/out，或将法向量整体乘以 −1。</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="tetra" class="panel">
+      <div class="layout">
+        <div class="card">
+          <h2>输入四个顶点</h2>
+          <div class="field">
+            <label for="tetraId">Region ID</label>
+            <input id="tetraId" value="tetra">
+          </div>
+          <div class="coord-grid">
+            <span></span><span class="axis">X</span><span class="axis">Y</span><span class="axis">Z</span>
+            <span class="point-name">A</span><input id="tax" type="number" step="any" value="0"><input id="tay" type="number" step="any" value="0"><input id="taz" type="number" step="any" value="0">
+            <span class="point-name">B</span><input id="tbx" type="number" step="any" value="10"><input id="tby" type="number" step="any" value="0"><input id="tbz" type="number" step="any" value="0">
+            <span class="point-name">C</span><input id="tcx" type="number" step="any" value="0"><input id="tcy" type="number" step="any" value="10"><input id="tcz" type="number" step="any" value="0">
+            <span class="point-name">D</span><input id="tdx" type="number" step="any" value="0"><input id="tdy" type="number" step="any" value="0"><input id="tdz" type="number" step="any" value="10">
+          </div>
+          <div class="row">
+            <div class="field">
+              <label for="tetraPrecision">输出小数位</label>
+              <select id="tetraPrecision"><option>4</option><option selected>8</option><option>12</option></select>
+            </div>
+            <div class="field">
+              <label for="tetraUnits">LAMMPS 单位</label>
+              <select id="tetraUnits"><option value="box">box</option><option value="lattice">lattice</option></select>
+            </div>
+          </div>
+          <div id="tetraMessage" class="message error"></div>
+          <div class="actions">
+            <button class="primary" id="calcTetra">计算四个面并生成命令</button>
+            <button class="secondary" id="tetraExample">恢复示例</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>四面体结果</h2>
+          <div class="result-grid">
+            <div class="metric"><span>体积</span><strong id="volumeOut">—</strong></div>
+            <div class="metric"><span>内部选取方式</span><strong>4 个 inward half-space 的交集</strong></div>
+          </div>
+          <pre id="tetraCode">输入四个顶点后点击“计算四个面并生成命令”。</pre>
+          <div class="actions">
+            <button class="secondary" data-copy="tetraCode">复制全部命令</button>
+          </div>
+          <p class="help">程序自动让每个面的法向量指向对面的顶点，因此四个 face 均可使用 side in，并通过 intersect 得到四面体内部。</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card paste-card">
+      <h2>快速粘贴 OVITO 坐标</h2>
+      <p class="help">每行填写一个点的 <code>x y z</code>，逗号、括号和空格均可。前三行可导入平面，前四行可导入四面体。</p>
+      <textarea id="pasteArea" placeholder="例如：
+(10, 20, 30)
+(20, 20, 30)
+(10, 30, 40)"></textarea>
+      <div id="pasteMessage" class="message error"></div>
+      <div class="actions">
+        <button class="secondary" id="pastePlane">导入平面前三点</button>
+        <button class="secondary" id="pasteTetra">导入四面体前四点</button>
+      </div>
+    </section>
+
+    <footer>坐标必须处于同一个周期映像中；跨周期边界时，请先使用展开坐标 xu、yu、zu。</footer>
+  </main>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const EPS = 1e-12;
+    const sub = (a,b) => a.map((v,i) => v-b[i]);
+    const dot = (a,b) => a.reduce((s,v,i) => s+v*b[i],0);
+    const cross = (a,b) => [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
+    const norm = a => Math.hypot(...a);
+    const scale = (a,s) => a.map(v => v*s);
+    const normalized = a => scale(a, 1/norm(a));
+    const readPoint = prefix => ["x","y","z"].map(axis => Number($(prefix+axis).value));
+    const validPoint = p => p.every(Number.isFinite);
+    const validId = id => /^[A-Za-z_][A-Za-z0-9_]*$/.test(id);
+    const clean = (v,p) => {
+      if (Math.abs(v) < Math.pow(10,-p)) v = 0;
+      return Number(v.toFixed(p)).toString();
+    };
+    const vectorText = (v,p) => `(${v.map(x=>clean(x,p)).join(", ")})`;
+    const showMessage = (id,text,type="error") => {
+      const el=$(id); el.textContent=text; el.className=`message ${type} show`;
+    };
+    const clearMessage = id => { const el=$(id); el.className="message error"; el.textContent=""; };
+    const regionPlane = (id,p,n,side,units,precision) =>
+      `region ${id} plane ${[...p,...n].map(v=>clean(v,precision)).join(" ")} side ${side} units ${units}`;
+    const atomskArg = value => `"${value.replaceAll('"',"")}"`;
+    const rotationToZ = n => {
+      const cosine=Math.max(-1,Math.min(1,n[2]));
+      if (cosine>1-EPS) return {axis:[1,0,0], angle:0};
+      if (cosine<-1+EPS) return {axis:[1,0,0], angle:180};
+      return {
+        axis:normalized(cross(n,[0,0,1])),
+        angle:Math.acos(cosine)*180/Math.PI
+      };
+    };
+
+    document.querySelectorAll(".tab").forEach(button => {
+      button.addEventListener("click", () => {
+        document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+        document.querySelectorAll(".panel").forEach(x=>x.classList.remove("active"));
+        button.classList.add("active");
+        $(button.dataset.tab).classList.add("active");
+      });
+    });
+
+    $("planeMode").addEventListener("change", () => {
+      const line = $("planeMode").value === "line";
+      $("thirdLabel").textContent = line ? "E" : "C";
+      $("thirdHelp").textContent = line
+        ? "E 是平面的延伸方向向量。例如从 X 方向观察 Y–Z 边界线时，填写 E=(1,0,0)。"
+        : "C 是平面上的第三个原子，A、B、C 不能共线。";
+    });
+    $("useInside").addEventListener("change", () => $("insideFields").classList.toggle("hidden", !$("useInside").checked));
+
+    $("calcPlane").addEventListener("click", () => {
+      clearMessage("planeMessage");
+      const A=readPoint("a"), B=readPoint("b"), C=readPoint("c");
+      const id=$("planeId").value.trim(), precision=Number($("planePrecision").value), units=$("planeUnits").value;
+      const atomskInput=$("atomskInput").value.trim(), atomskOutput=$("atomskOutput").value.trim();
+      const atomskTolerance=Number($("atomskTolerance").value);
+      if (![A,B,C].every(validPoint)) return showMessage("planeMessage","请完整输入所有坐标值。");
+      if (!validId(id)) return showMessage("planeMessage","Region ID 只能包含英文字母、数字和下划线，且不能以数字开头。");
+      if (!atomskInput || !atomskOutput) return showMessage("planeMessage","请填写 Atomsk 输入文件和输出文件名。");
+      if (!Number.isFinite(atomskTolerance) || atomskTolerance<0) return showMessage("planeMessage","Atomsk 平面容差必须是大于或等于 0 的数值。");
+      const u=sub(B,A);
+      const mode=$("planeMode").value;
+      let n = mode==="three" ? cross(u,sub(C,A)) : cross(u,C);
+      if (norm(n)<EPS) return showMessage("planeMessage", mode==="three" ? "三个点共线或过于接近，无法确定唯一平面。" : "延伸方向与 A→B 平行，无法确定唯一平面。");
+      n=normalized(n);
+      let orientationNote="";
+      if ($("useInside").checked) {
+        const Q=readPoint("q");
+        if (!validPoint(Q)) return showMessage("planeMessage","请完整输入内部测试点 Q。");
+        const s=dot(n,sub(Q,A));
+        if (s<0) { n=scale(n,-1); orientationNote="# 法向量已自动翻转，使测试点 Q 位于 side in\n"; }
+        else if (Math.abs(s)<1e-10) orientationNote="# 注意：测试点 Q 位于平面上，不能判定哪一侧为内部\n";
+      }
+      const D=-dot(n,A);
+      $("normalOut").textContent=vectorText(n,precision);
+      $("constantOut").textContent=clean(D,precision);
+      $("equationOut").textContent=`${clean(n[0],precision)}x + ${clean(n[1],precision)}y + ${clean(n[2],precision)}z + ${clean(D,precision)} = 0`;
+      const insideId=id+"_in", outsideId=id+"_out";
+      const method = mode==="three"
+        ? `# 由平面上的三点 A、B、C 求得\n# A=${vectorText(A,precision)}  B=${vectorText(B,precision)}  C=${vectorText(C,precision)}`
+        : `# 由边界线 A→B 与延伸方向 E 求得\n# A=${vectorText(A,precision)}  B=${vectorText(B,precision)}  E=${vectorText(C,precision)}`;
+      $("planeCode").textContent =
+`${method}
+# 单位法向量 n=${vectorText(n,precision)}
+# 平面方程: n·(X-A)=0；side in 满足 n·(X-A) >= 0
+${orientationNote}${regionPlane(insideId,A,n,"in",units,precision)}
+group ${id}_atoms region ${insideId}
+
+${regionPlane(outsideId,A,n,"out",units,precision)}
+group ${id}_outside region ${outsideId}
+
+# 可选：输出检查
+variable n_${id} equal count(${id}_atoms)
+run 0
+print "Selected atoms = \${n_${id}}"
+write_dump ${id}_atoms custom ${id}_atoms.lammpstrj id type x y z`;
+      const rotation=rotationToZ(n);
+      const shiftToOrigin=A.map(v=>clean(-v,precision)).join(" ");
+      const shiftBack=A.map(v=>clean(v,precision)).join(" ");
+      const rotationAxis=rotation.axis.map(v=>clean(v,precision)).join(" ");
+      const angle=clean(rotation.angle,precision);
+      const inverseAngle=clean(-rotation.angle,precision);
+      const cutDistance=clean(atomskTolerance,precision);
+      const rotateForward=rotation.angle<EPS ? "" : ` -rotate ${rotationAxis} ${angle}`;
+      const rotateBackward=rotation.angle<EPS ? "" : ` -rotate ${rotationAxis} ${inverseAngle}`;
+      $("atomskCode").textContent =
+`# 删除与 LAMMPS side in 对应的半空间：n·(X-A) > ${cutDistance} Å
+# 距平面 ${cutDistance} Å 内的原子保留，避免旋转舍入误差造成误删
+atomsk ${atomskArg(atomskInput)} -shift ${shiftToOrigin}${rotateForward} -cut above ${cutDistance} z${rotateBackward} -shift ${shiftBack} ${atomskArg(atomskOutput)}`;
+    });
+
+    $("planeExample").addEventListener("click", () => {
+      $("planeMode").value="line"; $("planeMode").dispatchEvent(new Event("change"));
+      [["ax",0],["ay",100],["az",50],["bx",0],["by",200],["bz",250],["cx",1],["cy",0],["cz",0]].forEach(([id,v])=>$(id).value=v);
+      $("planeId").value="yz_boundary";
+      $("calcPlane").click();
+    });
+
+    function inwardFace(point, p2, p3, opposite) {
+      let n=cross(sub(p2,point),sub(p3,point));
+      if (norm(n)<EPS) throw new Error("至少有三个顶点共线，无法构成四面体。");
+      if (dot(n,sub(opposite,point))<0) n=scale(n,-1);
+      return {point, n:normalized(n)};
+    }
+
+    $("calcTetra").addEventListener("click", () => {
+      clearMessage("tetraMessage");
+      const A=readPoint("ta"), B=readPoint("tb"), C=readPoint("tc"), Dp=readPoint("td");
+      const id=$("tetraId").value.trim(), precision=Number($("tetraPrecision").value), units=$("tetraUnits").value;
+      if (![A,B,C,Dp].every(validPoint)) return showMessage("tetraMessage","请完整输入四个顶点坐标。");
+      if (!validId(id)) return showMessage("tetraMessage","Region ID 只能包含英文字母、数字和下划线，且不能以数字开头。");
+      const signed6=dot(sub(B,A),cross(sub(C,A),sub(Dp,A)));
+      if (Math.abs(signed6)<EPS) return showMessage("tetraMessage","四个点共面或过于接近，不能构成具有体积的四面体。");
+      let faces;
+      try {
+        faces=[
+          inwardFace(B,C,Dp,A),
+          inwardFace(A,Dp,C,B),
+          inwardFace(A,B,Dp,C),
+          inwardFace(A,C,B,Dp)
+        ];
+      } catch(e) { return showMessage("tetraMessage",e.message); }
+      const faceIds=faces.map((_,i)=>`${id}_f${i+1}`);
+      const lines=faces.map((f,i)=>regionPlane(faceIds[i],f.point,f.n,"in",units,precision));
+      $("volumeOut").textContent=`${clean(Math.abs(signed6)/6,precision)} Å³`;
+      $("tetraCode").textContent =
+`# 顶点 A=${vectorText(A,precision)}
+# 顶点 B=${vectorText(B,precision)}
+# 顶点 C=${vectorText(C,precision)}
+# 顶点 D=${vectorText(Dp,precision)}
+# 各面的法向量均已自动指向四面体内部
+${lines.join("\n")}
+
+region ${id} intersect 4 ${faceIds.join(" ")}
+group ${id}_atoms region ${id}
+group ${id}_outside subtract all ${id}_atoms
+
+# 可选：输出检查
+variable n_${id} equal count(${id}_atoms)
+run 0
+print "Atoms inside tetrahedron = \${n_${id}}"
+write_dump ${id}_atoms custom ${id}_atoms.lammpstrj id type x y z`;
+    });
+
+    $("tetraExample").addEventListener("click", () => {
+      const values={tax:0,tay:0,taz:0,tbx:10,tby:0,tbz:0,tcx:0,tcy:10,tcz:0,tdx:0,tdy:0,tdz:10};
+      Object.entries(values).forEach(([id,v])=>$(id).value=v);
+      $("tetraId").value="tetra";
+      $("calcTetra").click();
+    });
+
+    function parsePastedPoints() {
+      return $("pasteArea").value.split(/\r?\n/).map(line => {
+        const matches=line.match(/[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?/g);
+        return matches && matches.length>=3 ? matches.slice(0,3).map(Number) : null;
+      }).filter(Boolean);
+    }
+    function assignPoint(prefix,p) { ["x","y","z"].forEach((axis,i)=>$(prefix+axis).value=p[i]); }
+    $("pastePlane").addEventListener("click", () => {
+      clearMessage("pasteMessage");
+      const points=parsePastedPoints();
+      if (points.length<3) return showMessage("pasteMessage","至少需要三行有效坐标，每行包含 x、y、z。");
+      assignPoint("a",points[0]); assignPoint("b",points[1]); assignPoint("c",points[2]);
+      $("planeMode").value="three"; $("planeMode").dispatchEvent(new Event("change"));
+      document.querySelector('[data-tab="plane"]').click();
+      $("calcPlane").click();
+    });
+    $("pasteTetra").addEventListener("click", () => {
+      clearMessage("pasteMessage");
+      const points=parsePastedPoints();
+      if (points.length<4) return showMessage("pasteMessage","至少需要四行有效坐标，每行包含 x、y、z。");
+      ["ta","tb","tc","td"].forEach((prefix,i)=>assignPoint(prefix,points[i]));
+      document.querySelector('[data-tab="tetra"]').click();
+      $("calcTetra").click();
+    });
+
+    document.querySelectorAll("[data-copy]").forEach(button => {
+      button.addEventListener("click", async () => {
+        const text=$(button.dataset.copy).textContent;
+        try {
+          await navigator.clipboard.writeText(text);
+          const old=button.textContent; button.textContent="已复制";
+          setTimeout(()=>button.textContent=old,1200);
+        } catch {
+          const range=document.createRange(); range.selectNodeContents($(button.dataset.copy));
+          const selection=window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
+          showMessage(button.dataset.copy==="planeCode"?"planeMessage":"tetraMessage","浏览器阻止自动复制，命令文本已选中，请按 Ctrl+C。","warn");
+        }
+      });
+    });
+
+    // Keep results synchronized with all editable inputs. This prevents stale
+    // commands from being copied after coordinates or the Region ID change.
+    [
+      "planeMode","planeId","ax","ay","az","bx","by","bz","cx","cy","cz",
+      "useInside","qx","qy","qz","planePrecision","planeUnits","atomskInput","atomskOutput","atomskTolerance"
+    ].forEach(id => {
+      $(id).addEventListener("input", () => $("calcPlane").click());
+      $(id).addEventListener("change", () => $("calcPlane").click());
+    });
+    [
+      "tetraId","tax","tay","taz","tbx","tby","tbz","tcx","tcy","tcz",
+      "tdx","tdy","tdz","tetraPrecision","tetraUnits"
+    ].forEach(id => {
+      $(id).addEventListener("input", () => $("calcTetra").click());
+      $(id).addEventListener("change", () => $("calcTetra").click());
+    });
+
+    $("calcPlane").click();
+    $("calcTetra").click();
+  </script>
+</body>
+</html>
