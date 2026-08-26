@@ -512,21 +512,41 @@ details.command-panel.explanation-panel > summary { color: var(--text); font-siz
 }
 .calibration-item-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 10px;
   margin-bottom: 10px;
+}
+.calibration-item-title {
+  flex: 1 1 180px;
+  min-width: 0;
 }
 .calibration-item-header h4 {
   margin: 0;
   color: var(--accent-dark);
   font-size: 14px;
 }
+.calibration-item-brief {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+.calibration-header-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+  margin-left: auto;
+}
+.calibration-toggle,
 .calibration-remove {
   flex: 0 0 auto;
   padding: 7px 10px;
   font-size: 12px;
 }
+.calibration-item.collapsed .calibration-item-header { margin-bottom: 0; }
+.calibration-item.collapsed .calibration-item-body { display: none; }
 .calibration-point-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
