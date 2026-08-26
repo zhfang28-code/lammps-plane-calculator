@@ -22,6 +22,16 @@
       <button class="tab" data-tab="layers">倾斜原子层 / 位移</button>
     </nav>
 
+    <section class="launch-command-bar" aria-label="LAMMPS 运行命令">
+      <div class="launch-command-content">
+        <span class="launch-command-label">LAMMPS 运行命令</span>
+        <code id="lammpsLaunchCode">mpiexec -np 12 lmp -in</code>
+        <span class="launch-command-help">在命令末尾补充输入脚本文件名，例如 <code>in.lammps</code>。</span>
+      </div>
+      <button class="secondary launch-command-copy" type="button" data-copy="lammpsLaunchCode" data-message="launchCommandMessage">复制运行命令</button>
+      <div id="launchCommandMessage" class="message error"></div>
+    </section>
+
     <section id="plane" class="panel active">
       <nav class="section-sidebar" aria-label="平面板块步骤导航">
         <span class="section-sidebar-title">平面步骤</span>
