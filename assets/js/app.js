@@ -32,6 +32,40 @@ const rotationToZ = n => {
   };
 };
 
+function setFormSectionCollapsed(section,collapsed) {
+  const body=section.querySelector(":scope > .form-section-body");
+  const toggle=section.querySelector(":scope > .section-heading > .form-section-toggle");
+  if (!body || !toggle) return;
+  section.classList.toggle("collapsed",collapsed);
+  body.hidden=collapsed;
+  toggle.setAttribute("aria-expanded",String(!collapsed));
+  toggle.querySelector(".toggle-label").textContent=collapsed ? "展开" : "收起";
+  toggle.querySelector(".collapse-symbol").textContent=collapsed ? "+" : "−";
+}
+
+function initializeCollapsibleFormSections() {
+  document.querySelectorAll(".form-section").forEach(section => {
+    const heading=section.querySelector(":scope > .section-heading");
+    if (!heading || section.querySelector(":scope > .form-section-body")) return;
+    const body=document.createElement("div");
+    body.className="form-section-body";
+    while (heading.nextSibling) body.appendChild(heading.nextSibling);
+    section.appendChild(body);
+    section.classList.add("collapsible-form-section");
+    const toggle=document.createElement("button");
+    toggle.type="button";
+    toggle.className="form-section-toggle";
+    toggle.innerHTML='<span class="toggle-label">收起</span><span class="collapse-symbol" aria-hidden="true">−</span>';
+    toggle.setAttribute("aria-expanded","true");
+    toggle.setAttribute("aria-controls",`${section.id}-body`);
+    body.id=`${section.id}-body`;
+    heading.appendChild(toggle);
+    toggle.addEventListener("click",()=>setFormSectionCollapsed(section,!section.classList.contains("collapsed")));
+  });
+}
+
+initializeCollapsibleFormSections();
+
 document.querySelectorAll(".tab").forEach(button => {
   button.addEventListener("click", () => {
     document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
@@ -56,6 +90,7 @@ document.querySelectorAll(".section-sidebar").forEach(sidebar => {
     if (!target) return;
     button.addEventListener("click", () => {
       setActive(button);
+      if (target.classList.contains("collapsible-form-section")) setFormSectionCollapsed(target,false);
       if (target.tagName==="DETAILS") target.open=true;
       const behavior=window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
       target.scrollIntoView({behavior,block:"start"});
@@ -1304,37 +1339,86 @@ group ${config.remainingGroup} subtract all ${config.upperGroup} ${config.lowerG
   }
 }
 
+function updateDisplacementControls() {
+  const planeMode=$("displacementInputMode").value==="plane";
+  const source=$("moveDirectionSource").value;
+  $("planeDisplacementFields").classList.toggle("hidden",!planeMode);
+  $("xyzDisplacementFields").classList.toggle("hidden",planeMode);
+  $("twoPointMoveDirection").classList.toggle("hidden",!planeMode || source!=="points");
+  $("customMoveDirection").classList.toggle("hidden",!planeMode || source!=="custom");
+  $("tangentMetric").classList.toggle("hidden",!planeMode);
+  $("paperDirectionMetric").classList.toggle("hidden",!planeMode);
+}
+
 function calculateDisplacement() {
   clearMessage("displaceMessage");
   try {
-    const {A,B,C,n,precision}=getLayerGeometry();
+    const inputMode=$("displacementInputMode").value;
+    const precision=Number($("layerPrecision").value);
     const {upperGroup,lowerGroup}=getLayerGroupIds();
-    const source=$("moveDirectionSource").value;
-    let reference, sourceName;
-    if (source==="ab") { reference=sub(B,A); sourceName="A→B"; }
-    else if (source==="ac") { reference=sub(C,A); sourceName="A→C"; }
-    else { reference=readPoint("mv"); sourceName="自定义向量 V"; }
-    if (!validPoint(reference)) throw new Error("请完整输入自定义面内方向向量 V。");
-    const projected=sub(reference,scale(n,dot(reference,n)));
-    if (norm(projected)<EPS) throw new Error("所选方向与平面法向平行或长度过小，无法得到面内方向。");
-    const tangent=normalized(projected);
-    const paperDirection=normalized(cross(n,tangent));
-    const alongDistance=Number($("alongMoveDistance").value);
-    const paperDistance=Number($("paperMoveDistance").value);
-    if (!Number.isFinite(alongDistance) || !Number.isFinite(paperDistance)) throw new Error("两个总相对位移分量都必须是有效数值。");
-    const relativeMove=add(scale(tangent,alongDistance),scale(paperDirection,paperDistance));
+    let relativeMove,directionExplanation;
+
+    if (inputMode==="plane") {
+      const {A,B,C,n}=getLayerGeometry();
+      const source=$("moveDirectionSource").value;
+      let reference,sourceName;
+      if (source==="ab") {
+        reference=sub(B,A);
+        sourceName="A→B";
+      } else if (source==="ac") {
+        reference=sub(C,A);
+        sourceName="A→C";
+      } else if (source==="points") {
+        const P=parseCoordinateTriplet($("moveDirectionPoint1").value,"方向起点 P").point;
+        const Q=parseCoordinateTriplet($("moveDirectionPoint2").value,"方向终点 Q").point;
+        reference=sub(Q,P);
+        if (norm(reference)<EPS) throw new Error("方向起点 P 与终点 Q 不能是同一个坐标。");
+        sourceName=`两点 P=${vectorText(P,precision)} → Q=${vectorText(Q,precision)} 的方向`;
+      } else {
+        reference=readPoint("mv");
+        sourceName="自定义向量 V";
+      }
+      if (!validPoint(reference)) throw new Error("请完整输入第一个面内方向。");
+      const projected=sub(reference,scale(n,dot(reference,n)));
+      if (norm(projected)<EPS) throw new Error("所选方向与平面法向平行或长度过小，无法得到面内方向。");
+      const tangent=normalized(projected);
+      const paperDirection=normalized(cross(n,tangent));
+      const alongDistance=Number($("alongMoveDistance").value);
+      const paperDistance=Number($("paperMoveDistance").value);
+      if (!Number.isFinite(alongDistance) || !Number.isFinite(paperDistance)) throw new Error("两个总相对位移分量都必须是有效数值。");
+      relativeMove=add(scale(tangent,alongDistance),scale(paperDirection,paperDistance));
+      $("tangentOut").textContent=vectorText(tangent,precision);
+      $("paperDirectionOut").textContent=vectorText(paperDirection,precision);
+      directionExplanation=
+`${sourceName} 投影到中心倾斜面并归一化后，得到第一个面内方向 t=${vectorText(tangent,precision)}。
+计算 p=n×t，得到同样位于倾斜面内、且与 t 垂直的第二方向 p=${vectorText(paperDirection,precision)}。
+输入的总相对位移：Δrel=${clean(alongDistance,precision)}t + ${clean(paperDistance,precision)}p = ${vectorText(relativeMove,precision)} Å。`;
+    } else {
+      const directInputs=["directMoveX","directMoveY","directMoveZ"].map(id=>$(id));
+      if (directInputs.some(input=>input.value.trim()==="")) throw new Error("请完整填写标准坐标系下的 ΔX、ΔY、ΔZ。");
+      relativeMove=directInputs.map(input=>Number(input.value));
+      if (!validPoint(relativeMove)) throw new Error("ΔX、ΔY、ΔZ 都必须是有效数值。");
+      $("tangentOut").textContent="—";
+      $("paperDirectionOut").textContent="—";
+      let componentExplanation="";
+      try {
+        const {n}=getLayerGeometry();
+        const normalComponent=dot(relativeMove,n);
+        const inPlaneComponent=sub(relativeMove,scale(n,normalComponent));
+        componentExplanation=` 相对于当前倾斜面，其法向有符号分量为 ${clean(normalComponent,precision)} Å，面内分量为 ${vectorText(inPlaneComponent,precision)} Å。`;
+      } catch {
+        componentExplanation=" 当前倾斜面参数无效，因此未附加面内/法向分解；XYZ 位移命令仍按输入值生成。";
+      }
+      directionExplanation=`直接使用标准坐标系输入 Δrel=(ΔX, ΔY, ΔZ)=${vectorText(relativeMove,precision)} Å，不进行面内投影。${componentExplanation}`;
+    }
+
     const upperMove=scale(relativeMove,0.5);
     const lowerMove=scale(relativeMove,-0.5);
-
-    $("tangentOut").textContent=vectorText(tangent,precision);
-    $("paperDirectionOut").textContent=vectorText(paperDirection,precision);
     $("relativeMoveOut").textContent=vectorText(relativeMove,precision);
     $("upperMoveOut").textContent=vectorText(upperMove,precision);
     $("lowerMoveOut").textContent=vectorText(lowerMove,precision);
     $("displaceExplanation").textContent =
-`${sourceName} 投影到中心倾斜面并归一化后，得到第一个面内方向 t=${vectorText(tangent,precision)}。
-计算 p=n×t，得到同样位于倾斜面内、且与 t 垂直的横向方向 p=${vectorText(paperDirection,precision)}。
-输入的总相对位移：Δrel=${clean(alongDistance,precision)}t + ${clean(paperDistance,precision)}p = ${vectorText(relativeMove,precision)} Å。
+`${directionExplanation}
 对称拆分后，全部上层位移 Δupper=+Δrel/2=${vectorText(upperMove,precision)} Å，全部下层位移 Δlower=−Δrel/2=${vectorText(lowerMove,precision)} Å。
 校验：Δupper−Δlower=Δrel；两层的相对位移总长度为 ${clean(norm(relativeMove),precision)} Å。`;
     $("displaceCode").textContent =
@@ -1414,9 +1498,21 @@ $("addLayerCalibration").addEventListener("click",()=>createLayerCalibrationItem
   $(id).addEventListener("change",updateLayerCalibrationTargets);
 });
 $("layerDiagramProjection").addEventListener("change",calculateLayerCommands);
-$("moveDirectionSource").addEventListener("change", () => {
-  $("customMoveDirection").classList.toggle("hidden", $("moveDirectionSource").value!=="custom");
+$("displacementInputMode").addEventListener("change", () => {
+  updateDisplacementControls();
   calculateDisplacement();
+});
+$("moveDirectionSource").addEventListener("change", () => {
+  updateDisplacementControls();
+  calculateDisplacement();
+});
+["moveDirectionPoint1","moveDirectionPoint2"].forEach(id=>{
+  const input=$(id);
+  input.addEventListener("input",()=>{
+    updateCalibrationCoordinateRecognition(input);
+    calculateDisplacement();
+  });
+  input.addEventListener("change",calculateDisplacement);
 });
 $("calcLayers").addEventListener("click", syncLayerCalculations);
 $("calcDisplacement").addEventListener("click", calculateDisplacement);
@@ -1446,9 +1542,15 @@ $("layerExample").addEventListener("click", () => {
   updateLayerLimitControls();
   $("useLayerCalibration").checked=false;
   updateLayerCalibrationControls();
+  $("displacementInputMode").value="plane";
   $("moveDirectionSource").value="ab";
-  $("customMoveDirection").classList.add("hidden");
+  ["moveDirectionPoint1","moveDirectionPoint2"].forEach(id=>{
+    $(id).value="";
+    updateCalibrationCoordinateRecognition($(id));
+  });
   $("alongMoveDistance").value=0.5536; $("paperMoveDistance").value=0;
+  $("directMoveX").value=0.5536; $("directMoveY").value=0; $("directMoveZ").value=0;
+  updateDisplacementControls();
   syncLayerCalculations();
 });
 
@@ -1527,7 +1629,7 @@ document.querySelectorAll("[data-copy]").forEach(button => {
   $(id).addEventListener("input", syncLayerCalculations);
   $(id).addEventListener("change", syncLayerCalculations);
 });
-["mvx","mvy","mvz","alongMoveDistance","paperMoveDistance"].forEach(id => {
+["mvx","mvy","mvz","alongMoveDistance","paperMoveDistance","directMoveX","directMoveY","directMoveZ"].forEach(id => {
   $(id).addEventListener("input", calculateDisplacement);
   $(id).addEventListener("change", calculateDisplacement);
 });
@@ -1539,4 +1641,5 @@ renderLayerRows();
 updateLayerLimitControls();
 updateMidplaneControls();
 updateLayerCalibrationControls();
+updateDisplacementControls();
 syncLayerCalculations();

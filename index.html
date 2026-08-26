@@ -16,11 +16,15 @@
       <div class="badge">离线静态网页 · 单位 Å · 笛卡尔坐标</div>
     </header>
 
-    <nav class="tabs" aria-label="计算模式">
-      <button class="tab active" data-tab="plane">平面 / 边界线</button>
-      <button class="tab" data-tab="hexa">六面体</button>
-      <button class="tab" data-tab="layers">倾斜原子层 / 位移</button>
-    </nav>
+    <div class="app-workspace">
+      <nav class="tabs" aria-label="计算模式">
+        <span class="tabs-title">计算器大分类</span>
+        <button class="tab active" data-tab="plane"><span>01</span>平面 / 边界线</button>
+        <button class="tab" data-tab="hexa"><span>02</span>六面体</button>
+        <button class="tab" data-tab="layers"><span>03</span>倾斜原子层 / 位移</button>
+      </nav>
+
+      <div class="workspace-main">
 
     <section class="launch-command-bar" aria-label="LAMMPS 运行命令">
       <div class="launch-command-content">
@@ -588,32 +592,76 @@
 
       <div id="displacementCard" class="card paste-card side-nav-target">
         <h2>上下原子层的总相对位移与 XYZ 分量</h2>
-        <p class="help form-intro">输入 upper 相对于 lower 的两个面内总相对位移分量。程序将总相对位移对称拆分为上层 +½、下层 −½，并换算成可直接用于 LAMMPS 的 X、Y、Z 位移。</p>
+        <p class="help form-intro">可沿倾斜面的两个正交方向输入总相对位移，也可直接填写标准坐标系 ΔX、ΔY、ΔZ。程序统一按上层 +½、下层 −½ 对称拆分。</p>
         <div class="displacement-layout">
           <div>
             <div class="field">
-              <label for="moveDirectionSource">第一个面内位移方向</label>
-              <select id="moveDirectionSource">
-                <option value="ab">沿 A→B 方向</option>
-                <option value="ac">沿 A→C 方向</option>
-                <option value="custom">使用自定义面内方向</option>
+              <label for="displacementInputMode">总相对位移的输入方式</label>
+              <select id="displacementInputMode">
+                <option value="plane">沿倾斜面的两个正交方向填写</option>
+                <option value="xyz">按标准坐标系 X、Y、Z 直接填写</option>
               </select>
             </div>
-            <div id="customMoveDirection" class="coord-grid hidden">
-              <span></span><span class="axis">X</span><span class="axis">Y</span><span class="axis">Z</span>
-              <span class="point-name">V</span><input id="mvx" type="number" step="any" value="1"><input id="mvy" type="number" step="any" value="0"><input id="mvz" type="number" step="any" value="0">
-            </div>
-            <div class="row">
+
+            <div id="planeDisplacementFields">
               <div class="field">
-                <label for="alongMoveDistance">沿第一方向的总相对位移（upper 相对 lower，Å）</label>
-                <input id="alongMoveDistance" type="number" step="any" value="0.5536">
+                <label for="moveDirectionSource">第一个面内方向如何确定</label>
+                <select id="moveDirectionSource">
+                  <option value="ab">沿 A→B 方向</option>
+                  <option value="ac">沿 A→C 方向</option>
+                  <option value="points">粘贴两点坐标，使用 P→Q 方向</option>
+                  <option value="custom">直接填写自定义向量 V</option>
+                </select>
               </div>
-              <div class="field">
-                <label for="paperMoveDistance">沿第二方向的总相对位移（通常垂直纸面，Å）</label>
-                <input id="paperMoveDistance" type="number" step="any" value="0">
+
+              <div id="twoPointMoveDirection" class="move-direction-points hidden">
+                <div class="calibration-point-card">
+                  <h4>方向起点 P</h4>
+                  <p class="help">直接粘贴起点的 X、Y、Z 坐标。</p>
+                  <div class="calibration-coordinate-entry">
+                    <input id="moveDirectionPoint1" class="calibration-coordinate-input" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="例如：14.0199 259.451 122.676">
+                    <p class="coordinate-recognition" data-state="empty">等待粘贴三个 XYZ 坐标</p>
+                  </div>
+                </div>
+                <div class="calibration-point-card">
+                  <h4>方向终点 Q</h4>
+                  <p class="help">程序使用 Q−P，并自动投影到当前倾斜面。</p>
+                  <div class="calibration-coordinate-entry">
+                    <input id="moveDirectionPoint2" class="calibration-coordinate-input" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="例如：12.5444 256.894 127.359">
+                    <p class="coordinate-recognition" data-state="empty">等待粘贴三个 XYZ 坐标</p>
+                  </div>
+                </div>
               </div>
+
+              <div id="customMoveDirection" class="coord-grid hidden">
+                <span></span><span class="axis">X</span><span class="axis">Y</span><span class="axis">Z</span>
+                <span class="point-name">V</span><input id="mvx" type="number" step="any" value="1"><input id="mvy" type="number" step="any" value="0"><input id="mvz" type="number" step="any" value="0">
+              </div>
+              <div class="row">
+                <div class="field">
+                  <label for="alongMoveDistance">沿第一方向的总相对位移（upper 相对 lower，Å）</label>
+                  <input id="alongMoveDistance" type="number" step="any" value="0.5536">
+                </div>
+                <div class="field">
+                  <label for="paperMoveDistance">沿第二方向的总相对位移（通常垂直纸面，Å）</label>
+                  <input id="paperMoveDistance" type="number" step="any" value="0">
+                </div>
+              </div>
+              <p class="help">第二个方向 p=n×t 位于倾斜面内并与第一方向垂直。使用两点时，P→Q 会先投影到倾斜面，再归一化为 t。</p>
             </div>
-            <p class="help">第二个方向 p=n×t 也位于倾斜面内，并与第一方向垂直；在常见侧视图中它对应垂直纸面的方向。两个总相对位移分量都可以输入正数或负数。</p>
+
+            <div id="xyzDisplacementFields" class="hidden">
+              <p class="help">下面三个数值直接组成 upper 相对于 lower 的总相对位移，不再进行面内方向投影。</p>
+              <div class="coord-grid direct-displacement-grid">
+                <span></span><span class="axis">ΔX</span><span class="axis">ΔY</span><span class="axis">ΔZ</span>
+                <span class="point-name">Δrel</span>
+                <input id="directMoveX" type="number" step="any" value="0.5536" aria-label="总相对位移 ΔX">
+                <input id="directMoveY" type="number" step="any" value="0" aria-label="总相对位移 ΔY">
+                <input id="directMoveZ" type="number" step="any" value="0" aria-label="总相对位移 ΔZ">
+              </div>
+              <p class="help">例如填写 (0.5536, 0, 0)，会生成上层 +(0.2768, 0, 0)、下层 −(0.2768, 0, 0)。</p>
+            </div>
+
             <p class="help">对称拆分规则：Δupper=+Δrel/2，Δlower=−Δrel/2，因此 Δupper−Δlower=Δrel。</p>
             <div id="displaceMessage" class="message error"></div>
             <div class="actions"><button class="primary" id="calcDisplacement">计算并生成位移命令</button></div>
@@ -621,8 +669,8 @@
 
           <div>
             <div class="result-grid">
-              <div class="metric"><span>第一个面内单位方向 t</span><strong id="tangentOut">—</strong></div>
-              <div class="metric"><span>与 t 垂直的面内方向 p</span><strong id="paperDirectionOut">—</strong></div>
+              <div id="tangentMetric" class="metric"><span>第一个面内单位方向 t</span><strong id="tangentOut">—</strong></div>
+              <div id="paperDirectionMetric" class="metric"><span>与 t 垂直的面内方向 p</span><strong id="paperDirectionOut">—</strong></div>
               <div class="metric relative-displacement"><span>upper 相对于 lower 的总 XYZ 相对位移 Δrel</span><strong id="relativeMoveOut">—</strong></div>
               <div class="metric"><span>对称拆分后的全部上层 XYZ 位移</span><strong id="upperMoveOut">—</strong></div>
               <div class="metric"><span>对称拆分后的全部下层 XYZ 位移</span><strong id="lowerMoveOut">—</strong></div>
@@ -646,6 +694,9 @@
         </div>
       </div>
     </section>
+
+      </div>
+    </div>
 
     <footer>坐标必须处于同一个周期映像中；跨周期边界时，请先使用展开坐标 xu、yu、zu。</footer>
   </main>
