@@ -41,6 +41,33 @@ document.querySelectorAll(".tab").forEach(button => {
   });
 });
 
+document.querySelectorAll(".section-sidebar").forEach(sidebar => {
+  const buttons=[...sidebar.querySelectorAll(".section-side-button")];
+  const setActive=button => {
+    buttons.forEach(item => {
+      const active=item===button;
+      item.classList.toggle("active",active);
+      if (active) item.setAttribute("aria-current","step");
+      else item.removeAttribute("aria-current");
+    });
+  };
+  buttons.forEach(button => {
+    const target=$(button.dataset.sectionTarget);
+    if (!target) return;
+    button.addEventListener("click", () => {
+      setActive(button);
+      if (target.tagName==="DETAILS") target.open=true;
+      const behavior=window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+      target.scrollIntoView({behavior,block:"start"});
+      target.classList.remove("section-focus");
+      void target.offsetWidth;
+      target.classList.add("section-focus");
+      window.setTimeout(()=>target.classList.remove("section-focus"),950);
+    });
+    target.addEventListener("focusin",()=>setActive(button));
+  });
+});
+
 $("planeMode").addEventListener("change", () => {
   const line = $("planeMode").value === "line";
   $("thirdLabel").textContent = line ? "E" : "C";

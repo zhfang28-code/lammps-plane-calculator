@@ -23,12 +23,19 @@
     </nav>
 
     <section id="plane" class="panel active">
+      <nav class="section-sidebar" aria-label="平面板块步骤导航">
+        <span class="section-sidebar-title">平面步骤</span>
+        <button class="section-side-button active" type="button" data-section-target="planeDefinition" aria-controls="planeDefinition" aria-current="step"><span>01</span>定义平面</button>
+        <button class="section-side-button" type="button" data-section-target="planeSideSettings" aria-controls="planeSideSettings"><span>02</span>选择一侧</button>
+        <button class="section-side-button" type="button" data-section-target="planeAdvanced" aria-controls="planeAdvanced"><span>03</span>输出设置</button>
+        <button class="section-side-button" type="button" data-section-target="planeResultCard" aria-controls="planeResultCard"><span>04</span>结果命令</button>
+      </nav>
       <div class="layout">
         <div class="card input-card">
           <h2>平面与边界设置</h2>
           <p class="help form-intro">先用坐标确定平面，再选择 LAMMPS 要保留的平面一侧。输出名称和 Atomsk 文件设置放在下方高级选项中。</p>
 
-          <div class="form-section">
+          <div id="planeDefinition" class="form-section side-nav-target">
             <h3 class="section-heading"><span class="step-badge">1</span>定义平面</h3>
             <div class="field">
               <label for="planeMode">坐标输入方式</label>
@@ -66,7 +73,7 @@
             </details>
           </div>
 
-          <div class="form-section">
+          <div id="planeSideSettings" class="form-section side-nav-target">
             <h3 class="section-heading"><span class="step-badge">2</span>选择要处理的平面一侧</h3>
 
           <label class="checkline">
@@ -91,7 +98,7 @@
           </div>
           </div>
 
-          <details class="advanced-options">
+          <details id="planeAdvanced" class="advanced-options side-nav-target">
             <summary>LAMMPS 输出名称、精度与 Atomsk 文件（高级）</summary>
             <div class="details-body">
               <div class="field">
@@ -134,7 +141,7 @@
           </div>
         </div>
 
-        <div class="card result-card">
+        <div id="planeResultCard" class="card result-card side-nav-target">
           <h2>平面计算结果</h2>
           <div class="result-grid">
             <div class="metric"><span>平面的单位方向 n</span><strong id="normalOut">—</strong></div>
@@ -170,12 +177,19 @@
     </section>
 
     <section id="hexa" class="panel">
+      <nav class="section-sidebar" aria-label="六面体板块步骤导航">
+        <span class="section-sidebar-title">六面体步骤</span>
+        <button class="section-side-button active" type="button" data-section-target="hexaBaseSettings" aria-controls="hexaBaseSettings" aria-current="step"><span>01</span>底面坐标</button>
+        <button class="section-side-button" type="button" data-section-target="hexaThicknessSettings" aria-controls="hexaThicknessSettings"><span>02</span>厚度方向</button>
+        <button class="section-side-button" type="button" data-section-target="hexaAdvanced" aria-controls="hexaAdvanced"><span>03</span>输出设置</button>
+        <button class="section-side-button" type="button" data-section-target="hexaResultCard" aria-controls="hexaResultCard"><span>04</span>结果命令</button>
+      </nav>
       <div class="layout">
         <div class="card input-card">
           <h2>六面体设置</h2>
           <p class="help form-intro">只需按边界顺序输入底面 A、B、C、D，再给出沿底面法向的厚度；程序会自动生成平行面 E、F、G、H 和六个裁剪面。</p>
 
-          <div class="form-section">
+          <div id="hexaBaseSettings" class="form-section side-nav-target">
             <h3 class="section-heading"><span class="step-badge">1</span>按顺序输入底面四个顶点</h3>
             <div class="face-set">
               <div class="face-set-title"><span>底面：A → B → C → D</span><small>四点必须共面，并沿凸四边形边界连续排列</small></div>
@@ -199,7 +213,7 @@
             </details>
           </div>
 
-          <div class="form-section">
+          <div id="hexaThicknessSettings" class="form-section side-nav-target">
             <h3 class="section-heading"><span class="step-badge">2</span>设置六面体厚度</h3>
             <div class="row">
               <div class="field">
@@ -217,7 +231,7 @@
             <p class="help">自动计算 E=A+t·n、F=B+t·n、G=C+t·n、H=D+t·n，因此 A–D 与 E–H 必然严格平行，A–E、B–F、C–G、D–H 的长度都等于厚度 t。</p>
           </div>
 
-          <details class="advanced-options">
+          <details id="hexaAdvanced" class="advanced-options side-nav-target">
             <summary>输出文件、名称、精度与几何检查容差（高级）</summary>
             <div class="details-body">
               <div class="field">
@@ -263,7 +277,7 @@
           </div>
         </div>
 
-        <div class="card result-card">
+        <div id="hexaResultCard" class="card result-card side-nav-target">
           <h2>六面体结果</h2>
           <div class="result-grid">
             <div class="metric"><span>六面体体积</span><strong id="hexaVolumeOut">—</strong></div>
@@ -299,12 +313,21 @@
     </section>
 
     <section id="layers" class="panel">
+      <nav class="section-sidebar" aria-label="倾斜原子层与位移步骤导航">
+        <span class="section-sidebar-title">原子层步骤</span>
+        <button class="section-side-button active" type="button" data-section-target="layerPlaneSettings" aria-controls="layerPlaneSettings" aria-current="step"><span>01</span>中心倾斜面</button>
+        <button class="section-side-button" type="button" data-section-target="layerStackSettings" aria-controls="layerStackSettings"><span>02</span>层数厚度</button>
+        <button class="section-side-button" type="button" data-section-target="layerBoundarySettings" aria-controls="layerBoundarySettings"><span>03</span>横向裁剪</button>
+        <button class="section-side-button" type="button" data-section-target="layerAdvanced" aria-controls="layerAdvanced"><span>04</span>输出设置</button>
+        <button class="section-side-button" type="button" data-section-target="layerResultCard" aria-controls="layerResultCard"><span>05</span>原子层结果</button>
+        <button class="section-side-button" type="button" data-section-target="displacementCard" aria-controls="displacementCard"><span>06</span>位移投影</button>
+      </nav>
       <div class="layout">
         <div class="card input-card">
           <h2>倾斜原子层设置</h2>
           <p class="help form-intro">用三个原子确定中心倾斜面，再设置上下层数量、厚度和可选的侧边界。</p>
 
-          <div class="form-section">
+          <div id="layerPlaneSettings" class="form-section side-nav-target">
             <h3 class="section-heading"><span class="step-badge">1</span>输入中心倾斜面</h3>
             <p class="help">A、B、C 必须是中心面上三个不共线的原子。</p>
 
@@ -335,7 +358,7 @@
           </div>
           </div>
 
-          <div class="form-section">
+          <div id="layerStackSettings" class="form-section side-nav-target">
             <h3 class="section-heading"><span class="step-badge">2</span>设置上下层数量与厚度</h3>
 
           <div class="row">
@@ -357,7 +380,7 @@
           <p class="help">第 1 排最靠近中心面，后续各排依次向外累计。留空距离为 0 时各层连续；大于 0 时中心面两侧会保留一段不选择的区域。</p>
           </div>
 
-          <div class="form-section">
+          <div id="layerBoundarySettings" class="form-section side-nav-target">
           <h3 class="section-heading"><span class="step-badge">3</span>限制原子层的横向范围（可选）</h3>
           <p class="help">启用后会增加一条橙色侧边界，只保留这条边界某一侧的原子层。</p>
           <label class="checkline">
@@ -412,7 +435,7 @@
           </div>
           </div>
 
-          <details class="advanced-options">
+          <details id="layerAdvanced" class="advanced-options side-nav-target">
             <summary>LAMMPS 区域、原子组名称与输出精度（高级）</summary>
             <div class="details-body">
               <div class="field"><label for="layerLimitId">侧边界区域名称</label><input id="layerLimitId" value="layer_limit"></div>
@@ -441,7 +464,7 @@
           </div>
         </div>
 
-        <div class="card result-card">
+        <div id="layerResultCard" class="card result-card side-nav-target">
           <h2>倾斜原子层结果</h2>
           <div class="result-grid">
             <div class="metric"><span>指向上层的方向 n</span><strong id="layerNormalOut">—</strong></div>
@@ -482,7 +505,7 @@
         </div>
       </div>
 
-      <div class="card paste-card">
+      <div id="displacementCard" class="card paste-card side-nav-target">
         <h2>沿倾斜面的位移与 XYZ 分量</h2>
         <p class="help form-intro">输入倾斜面内的两个方向分量，自动换算成可直接用于 LAMMPS 的 X、Y、Z 位移。</p>
         <div class="displacement-layout">
