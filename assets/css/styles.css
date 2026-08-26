@@ -381,6 +381,7 @@ button {
   font-weight: 700;
   cursor: pointer;
 }
+button:disabled { opacity: .52; cursor: not-allowed; }
 .primary { color: white; background: var(--accent); }
 .primary:hover { background: var(--accent-dark); }
 .secondary { color: var(--accent-dark); background: var(--soft); }
@@ -392,6 +393,7 @@ button {
   margin-bottom: 12px;
 }
 .result-grid .relative-displacement { grid-column: 1 / -1; }
+.result-grid .layer-calibration-metric { grid-column: 1 / -1; }
 .metric {
   padding: 11px 12px;
   border: 1px solid var(--line);
@@ -497,6 +499,22 @@ details.command-panel.explanation-panel > summary { color: var(--text); font-siz
   border-radius: 11px;
   background: #ffffff;
 }
+.calibration-point-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.calibration-point-card {
+  min-width: 0;
+  padding: 11px;
+  border: 1px solid #dce5e9;
+  border-radius: 10px;
+  background: #f8fafb;
+}
+.calibration-point-card h4 { margin: 0 0 5px; font-size: 13px; }
+.calibration-point-card .help { margin: 0 0 9px; }
+.calibration-point-card .coord-grid { margin-bottom: 0; }
+.message.ok { color: #17633d; background: #eef9f2; border: 1px solid #bfe2cb; }
 .diagram-toolbar {
   display: flex;
   align-items: end;
@@ -534,6 +552,7 @@ details.command-panel.explanation-panel > summary { color: var(--text); font-siz
 .message.show { display: block; }
 .message.error { color: var(--error); background: #fff0ef; border: 1px solid #f2c8c5; }
 .message.warn { color: var(--warn); background: #fff8ea; border: 1px solid #efd6a8; }
+#layerCalibrationMessage { white-space: pre-line; }
 .paste-card { margin-top: 16px; }
 textarea { min-height: 94px; resize: vertical; font-family: Consolas, monospace; }
 .hidden { display: none !important; }
@@ -571,6 +590,7 @@ footer { margin-top: 16px; color: var(--muted); text-align: center; font-size: 1
   .shell { width: min(100% - 18px, 1360px); margin-top: 14px; }
   .card { padding: 15px; }
   .row, .result-grid { grid-template-columns: 1fr; }
+  .calibration-point-grid { grid-template-columns: 1fr; }
   .coord-grid { grid-template-columns: 32px repeat(3, minmax(0, 1fr)); gap: 5px; }
   .coord-grid input { padding-inline: 7px; }
   .form-section { padding: 12px; }

@@ -335,10 +335,11 @@
         <span class="section-sidebar-title">原子层步骤</span>
         <button class="section-side-button active" type="button" data-section-target="layerPlaneSettings" aria-controls="layerPlaneSettings" aria-current="step"><span>01</span>中心倾斜面</button>
         <button class="section-side-button" type="button" data-section-target="layerStackSettings" aria-controls="layerStackSettings"><span>02</span>层数厚度</button>
-        <button class="section-side-button" type="button" data-section-target="layerBoundarySettings" aria-controls="layerBoundarySettings"><span>03</span>横向裁剪</button>
-        <button class="section-side-button" type="button" data-section-target="layerAdvanced" aria-controls="layerAdvanced"><span>04</span>输出设置</button>
-        <button class="section-side-button" type="button" data-section-target="layerResultCard" aria-controls="layerResultCard"><span>05</span>原子层结果</button>
-        <button class="section-side-button" type="button" data-section-target="displacementCard" aria-controls="displacementCard"><span>06</span>位移投影</button>
+        <button class="section-side-button" type="button" data-section-target="layerCalibrationSettings" aria-controls="layerCalibrationSettings"><span>03</span>参考原子</button>
+        <button class="section-side-button" type="button" data-section-target="layerBoundarySettings" aria-controls="layerBoundarySettings"><span>04</span>横向裁剪</button>
+        <button class="section-side-button" type="button" data-section-target="layerAdvanced" aria-controls="layerAdvanced"><span>05</span>输出设置</button>
+        <button class="section-side-button" type="button" data-section-target="layerResultCard" aria-controls="layerResultCard"><span>06</span>原子层结果</button>
+        <button class="section-side-button" type="button" data-section-target="displacementCard" aria-controls="displacementCard"><span>07</span>位移投影</button>
       </nav>
       <div class="layout">
         <div class="card input-card">
@@ -398,8 +399,46 @@
           <p class="help">第 1 排最靠近中心面，后续各排依次向外累计。留空距离为 0 时各层连续；大于 0 时中心面两侧会保留一段不选择的区域。</p>
           </div>
 
+          <div id="layerCalibrationSettings" class="form-section side-nav-target">
+          <h3 class="section-heading"><span class="step-badge">3</span>用已知原子校准目标层（可选）</h3>
+          <p class="help">为某个 upper_i 或 lower_i 指定一个“必须选中”的原子点和一个“必须排除”的原子点，用它们到中心面的法向距离检查并优化该层外边界。</p>
+          <label class="checkline">
+            <input id="useLayerCalibration" type="checkbox">
+            启用参考原子校准
+          </label>
+          <div id="layerCalibrationFields" class="limit-box hidden">
+            <div class="field">
+              <label for="layerCalibrationTarget">要校准的目标层</label>
+              <select id="layerCalibrationTarget"></select>
+            </div>
+            <div class="calibration-point-grid">
+              <div class="calibration-point-card">
+                <h4>必须在目标层内的点 P<sub>in</sub></h4>
+                <p class="help">填写一个确定应被选入该层的原子坐标。</p>
+                <div class="coord-grid">
+                  <span></span><span class="axis">X</span><span class="axis">Y</span><span class="axis">Z</span>
+                  <span class="point-name">P<sub>in</sub></span><input id="calInx" type="number" step="any" placeholder="X"><input id="calIny" type="number" step="any" placeholder="Y"><input id="calInz" type="number" step="any" placeholder="Z">
+                </div>
+              </div>
+              <div class="calibration-point-card">
+                <h4>必须不在目标层内的点 P<sub>out</sub></h4>
+                <p class="help">填写一个确定应被该层排除的原子坐标。</p>
+                <div class="coord-grid">
+                  <span></span><span class="axis">X</span><span class="axis">Y</span><span class="axis">Z</span>
+                  <span class="point-name">P<sub>out</sub></span><input id="calOutx" type="number" step="any" placeholder="X"><input id="calOuty" type="number" step="any" placeholder="Y"><input id="calOutz" type="number" step="any" placeholder="Z">
+                </div>
+              </div>
+            </div>
+            <div id="layerCalibrationMessage" class="message warn" aria-live="polite"></div>
+            <div class="actions">
+              <button class="secondary" id="applyLayerCalibration" type="button" disabled>按两点中间位置优化目标层厚度</button>
+            </div>
+            <p class="help">优化只修改目标层这一排的厚度，不改变中心面、其他排厚度或横向裁剪设置。由于各排从中心向外累计，目标层外侧各排的绝对位置会随新边界一起平移。若两点无法由同一条外边界分开，程序会说明应调整的参数。</p>
+          </div>
+          </div>
+
           <div id="layerBoundarySettings" class="form-section side-nav-target">
-          <h3 class="section-heading"><span class="step-badge">3</span>限制原子层的横向范围（可选）</h3>
+          <h3 class="section-heading"><span class="step-badge">4</span>限制原子层的横向范围（可选）</h3>
           <p class="help">启用后会增加一条橙色侧边界，只保留这条边界某一侧的原子层。</p>
           <label class="checkline">
             <input id="useLayerLimit" type="checkbox" checked>
@@ -491,6 +530,7 @@
             <div class="metric"><span>上层 / 下层总厚度</span><strong id="layerThicknessOut">—</strong></div>
             <div class="metric"><span>侧边界保留条件</span><strong id="layerLimitOut">—</strong></div>
             <div class="metric"><span>逐层 Z 坐标的取样 X/Y</span><strong id="layerVerticalSampleOut">—</strong></div>
+            <div class="metric layer-calibration-metric"><span>参考原子校准</span><strong id="layerCalibrationOut">未启用</strong></div>
           </div>
           <h3>原子层截面预览</h3>
           <div class="diagram-toolbar">

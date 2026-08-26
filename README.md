@@ -23,6 +23,8 @@
 - 生成 Atomsk 六面连续裁剪命令，逐面旋转并删除六面体外部原子
 - 由三个原子坐标定义任意倾斜面，并按自选排数与上下层厚度生成有限厚度原子层
 - 可用一条垂直于倾斜面的平面按 `m·X ≥ K` 或 `m·X < K` 裁剪所有原子层
+- 可为任意 `upper_i` / `lower_i` 指定一个必须选中的参考原子和一个必须排除的参考原子，同时检查法向厚度与横向裁剪条件
+- 当两点可由目标层外边界分开时，自动以两点法向投影中点计算并应用目标层厚度；约束冲突时给出原因而不修改参数
 - 动态绘制上下层、中心面、裁剪界面与保留方向，并自动列出各层在指定 `(X,Y)` 处的 Z 坐标边界
 - 生成各层 `region plane` / `intersect`、上下层 `group union` 及其余原子 `group subtract` 命令
 - 将输入的 upper–lower 总相对位移投影到 X、Y、Z，并按 `Δupper=+Δrel/2`、`Δlower=−Δrel/2` 对称拆分后生成 `displace_atoms` 命令
@@ -38,5 +40,7 @@
 打开仓库中的 [`index.html`](./index.html)，或者直接访问 [GitHub Pages 在线版](https://zhfang28-code.github.io/lammps-plane-calculator/)。
 
 六面体只需输入底面 A→B→C→D 与厚度。四点必须共面，并沿凸四边形边界连续排列；程序根据所选法向自动计算 E=A+t·n、F=B+t·n、G=C+t·n、H=D+t·n，再生成 LAMMPS 和 Atomsk 命令。
+
+参考原子校准使用有符号法向距离 `s=n·(X−A)` 判断点所在的原子层。选择目标 `upper_i` 或 `lower_i` 后，`P_in` 必须被该层选中，`P_out` 必须被该层排除；程序还会同时检查可选横向裁剪界面。点击优化按钮只改写目标排厚度，但目标层外侧各排的绝对位置会随累计边界移动。
 
 项目早期本地文件名为 `LAMMPS平面与四面体区域计算器.html`。为便于 GitHub Pages 识别网页入口，当前仓库使用 `index.html`；样式和计算逻辑已分别整理到 `assets/css` 与 `assets/js` 中。

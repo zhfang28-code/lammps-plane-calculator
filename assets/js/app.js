@@ -437,6 +437,185 @@ function buildLayerRanges(config) {
   return {ranges,totalUpper,totalLower,sMin:lowerCursor,sMax:upperCursor};
 }
 
+function readRequiredCalibrationPoint(prefix,label) {
+  const fields=["x","y","z"].map(axis=>$(prefix+axis));
+  if (fields.some(field=>field.value.trim()==="")) throw new Error(`请完整输入${label}的 X、Y、Z 坐标。`);
+  const point=fields.map(field=>Number(field.value));
+  if (!validPoint(point)) throw new Error(`${label}的坐标必须是有效数值。`);
+  return point;
+}
+
+function updateLayerCalibrationTargets() {
+  const select=$("layerCalibrationTarget");
+  const current=select.value;
+  const count=Number($("layerCount").value);
+  const upperPrefix=validId($("upperPrefix").value.trim()) ? $("upperPrefix").value.trim() : "upper";
+  const lowerPrefix=validId($("lowerPrefix").value.trim()) ? $("lowerPrefix").value.trim() : "lower";
+  select.textContent="";
+  if (!Number.isInteger(count) || count<1 || count>20) return;
+  [
+    {kind:"upper",prefix:upperPrefix,label:"上层"},
+    {kind:"lower",prefix:lowerPrefix,label:"下层"}
+  ].forEach(side => {
+    const group=document.createElement("optgroup");
+    group.label=side.label;
+    for (let index=1;index<=count;index++) {
+      const option=document.createElement("option");
+      option.value=`${side.kind}:${index}`;
+      option.textContent=`${side.prefix}_${index}（第 ${index} 排${side.label}）`;
+      group.appendChild(option);
+    }
+    select.appendChild(group);
+  });
+  const available=[...select.options].some(option=>option.value===current);
+  select.value=available ? current : "upper:1";
+}
+
+function updateLayerCalibrationControls() {
+  const enabled=$("useLayerCalibration").checked;
+  $("layerCalibrationFields").classList.toggle("hidden",!enabled);
+  if (!enabled) {
+    clearMessage("layerCalibrationMessage");
+    $("applyLayerCalibration").disabled=true;
+    $("layerCalibrationOut").textContent="未启用";
+    $("layerCalibrationOut").dataset.state="disabled";
+    $("layerCalibrationOut").dataset.cause="";
+  }
+}
+
+function layerLimitMembership(point,limit) {
+  const projection=dot(limit.m,point);
+  const passes=!limit.enabled || (limit.side==="greater" ? projection>=limit.K : projection<limit.K);
+  return {passes,projection};
+}
+
+function evaluateLayerCalibration(geometry,config,rangeData,limit) {
+  if (!$("useLayerCalibration").checked) return {enabled:false};
+  const targetValue=$("layerCalibrationTarget").value;
+  const match=/^(upper|lower):(\d+)$/.exec(targetValue);
+  if (!match) throw new Error("请选择要校准的 upper 或 lower 目标层。");
+  const kind=match[1], index=Number(match[2]);
+  if (index<1 || index>config.count) throw new Error("所选目标层已不存在，请重新选择。");
+  const targetId=(kind==="upper" ? config.upperIds : config.lowerIds)[index-1];
+  const targetRange=rangeData.ranges.find(range=>range.id===targetId);
+  if (!targetRange) throw new Error("无法找到所选目标层的法向范围。");
+
+  const insidePoint=readRequiredCalibrationPoint("calIn","必须选中的点 P_in");
+  const outsidePoint=readRequiredCalibrationPoint("calOut","必须排除的点 P_out");
+  const signedDistance=point=>dot(geometry.n,sub(point,geometry.A));
+  const insideS=signedDistance(insidePoint), outsideS=signedDistance(outsidePoint);
+  const insideLimit=layerLimitMembership(insidePoint,limit);
+  const outsideLimit=layerLimitMembership(outsidePoint,limit);
+  const inNormal=(s,range)=>s>=range.lo && s<range.hi;
+  const selectedLayers=(s,limitResult)=>limitResult.passes
+    ? rangeData.ranges.filter(range=>inNormal(s,range)).map(range=>range.id)
+    : [];
+  const insideLayers=selectedLayers(insideS,insideLimit);
+  const outsideLayers=selectedLayers(outsideS,outsideLimit);
+  const insideSelected=insideLayers.includes(targetId);
+  const outsideSelected=outsideLayers.includes(targetId);
+  const currentPass=insideSelected && !outsideSelected;
+
+  const direction=kind==="upper" ? 1 : -1;
+  const insideD=direction*insideS, outsideD=direction*outsideS;
+  const innerD=kind==="upper" ? targetRange.lo : -targetRange.hi;
+  const canReachInside=kind==="upper" ? insideD>=innerD-EPS : insideD>innerD+EPS;
+  const outsideAlwaysExcludedByInner=kind==="upper" ? outsideD<innerD-EPS : outsideD<=innerD+EPS;
+  const outputResolution=Math.pow(10,-geometry.precision);
+  const boundaryMargin=Math.max(2*outputResolution,1e-6);
+  let recommendation=null,reason="",reasonCode="";
+
+  if (!insideLimit.passes) {
+    reasonCode="inside-lateral";
+    reason="P_in 被当前横向裁剪界面排除；调整目标层厚度无法使它进入，请先修改横向裁剪的保留侧或界面位置。";
+  } else if (!canReachInside) {
+    reasonCode="inside-inner";
+    reason=`P_in 位于目标层内边界的中心侧（向外距离 ${clean(insideD,geometry.precision)} Å，内边界 ${clean(innerD,geometry.precision)} Å）；只修改本排外边界无法选中它。`;
+  } else if (!outsideLimit.passes || outsideAlwaysExcludedByInner) {
+    if (insideSelected) {
+      reasonCode="already-satisfied";
+      reason=!outsideLimit.passes
+        ? "当前约束已经满足：P_out 由横向裁剪界面排除，不需要修改目标层厚度。"
+        : "当前约束已经满足：P_out 位于目标层内边界的中心侧，不需要修改外边界。";
+    } else {
+      reasonCode="expand-to-inside";
+      const boundaryD=insideD+boundaryMargin;
+      recommendation={
+        thickness:boundaryD-innerD,
+        boundaryD,
+        signedBoundary:direction*boundaryD,
+        method:"最小可行外边界"
+      };
+      reason="P_out 已由其他边界排除；可把目标层外边界扩展到刚好越过 P_in。";
+    }
+  } else if (outsideD<=insideD+EPS) {
+    reasonCode="order-conflict";
+    reason=`沿目标层向外方向，P_out（${clean(outsideD,geometry.precision)} Å）不比 P_in（${clean(insideD,geometry.precision)} Å）更远；一条平行外边界无法同时包含 P_in 并排除 P_out。`;
+  } else if (outsideD-insideD<=2*outputResolution) {
+    reasonCode="precision-conflict";
+    reason=`P_in 与 P_out 的法向距离差小于当前 ${geometry.precision} 位小数可稳定分辨的范围；请提高“输出小数位”后再优化。`;
+  } else {
+    reasonCode="midpoint";
+    const boundaryD=(insideD+outsideD)/2;
+    recommendation={
+      thickness:boundaryD-innerD,
+      boundaryD,
+      signedBoundary:direction*boundaryD,
+      method:"两点法向投影中点"
+    };
+    reason="两点可由一条平行外边界分开；建议把边界放在两点法向投影的中点，以获得相等的两侧余量。";
+  }
+
+  const actualLayerText=layers=>layers.length ? layers.join("、") : "未进入任何已生成层";
+  const targetInterval=`${clean(targetRange.lo,geometry.precision)} ≤ s < ${clean(targetRange.hi,geometry.precision)} Å`;
+  const status=currentPass ? "pass" : recommendation ? "adjustable" : "conflict";
+  const summary=currentPass
+    ? `通过：P_in ∈ ${targetId}，P_out ∉ ${targetId}`
+    : recommendation
+      ? `可优化：调整 ${targetId} 的厚度后可满足两点约束`
+      : `约束未满足：当前无法仅靠 ${targetId} 的外边界解决`;
+  const recommendationText=recommendation
+    ? `建议外边界：s=${clean(recommendation.signedBoundary,geometry.precision)} Å；建议 ${targetId} 厚度=${clean(recommendation.thickness,geometry.precision)} Å（${recommendation.method}）。`
+    : "未生成厚度调整值。";
+  const explanation=
+`参考原子校准目标：${targetId}，当前法向范围 ${targetInterval}。
+P_in=${vectorText(insidePoint,geometry.precision)}：s=${clean(insideS,geometry.precision)} Å，横向裁剪${insideLimit.passes ? "通过" : "不通过"}；当前归属：${actualLayerText(insideLayers)}。
+P_out=${vectorText(outsidePoint,geometry.precision)}：s=${clean(outsideS,geometry.precision)} Å，横向裁剪${outsideLimit.passes ? "通过" : "不通过"}；当前归属：${actualLayerText(outsideLayers)}。
+${reason}
+${recommendationText}`;
+
+  return {
+    enabled:true,status,summary,explanation,reason,reasonCode,recommendation,
+    targetId,targetRange,kind,index,insidePoint,outsidePoint,insideS,outsideS,
+    insideSelected,outsideSelected,insideLimit,outsideLimit,currentPass
+  };
+}
+
+function renderLayerCalibration(calibration) {
+  const button=$("applyLayerCalibration");
+  button.disabled=true;
+  if (!calibration.enabled) {
+    clearMessage("layerCalibrationMessage");
+    $("layerCalibrationOut").textContent="未启用";
+    $("layerCalibrationOut").dataset.state="disabled";
+    $("layerCalibrationOut").dataset.cause="";
+    return;
+  }
+  if (calibration.error) {
+    $("layerCalibrationOut").textContent="等待完整参考点";
+    $("layerCalibrationOut").dataset.state="input-error";
+    $("layerCalibrationOut").dataset.cause="input-error";
+    showMessage("layerCalibrationMessage",calibration.error,"warn");
+    return;
+  }
+  const messageType=calibration.status==="pass" ? "ok" : calibration.status==="adjustable" ? "warn" : "error";
+  $("layerCalibrationOut").textContent=calibration.summary;
+  $("layerCalibrationOut").dataset.state=calibration.status;
+  $("layerCalibrationOut").dataset.cause=calibration.reasonCode;
+  showMessage("layerCalibrationMessage",calibration.explanation,messageType);
+  button.disabled=!calibration.recommendation;
+}
+
 function verticalZAt(A,n,s,x,y) {
   if (Math.abs(n[2])<1e-10) return null;
   return A[2]+(s-n[0]*(x-A[0])-n[1]*(y-A[1]))/n[2];
@@ -462,7 +641,7 @@ function renderLayerDiagramError(message) {
   $("layerDiagramCaption").textContent=message || "参数有效后自动绘制。";
 }
 
-function renderLayerDiagram(geometry,config,rangeData,limit) {
+function renderLayerDiagram(geometry,config,rangeData,limit,calibration=null) {
   const {A,n,precision}=geometry;
   const projections={
     xy:{indices:[0,1],labels:["X","Y"]},
@@ -582,6 +761,29 @@ function renderLayerDiagram(geometry,config,rangeData,limit) {
     },"裁剪界面"));
   }
 
+  let calibrationMarkerCount=0;
+  if (calibration?.enabled && !calibration.error) {
+    [
+      {point:calibration.insidePoint,s:calibration.insideS,label:"P_in",satisfied:calibration.insideSelected},
+      {point:calibration.outsidePoint,s:calibration.outsideS,label:"P_out",satisfied:!calibration.outsideSelected}
+    ].forEach(marker => {
+      const q=dot(limit.m,sub(marker.point,A));
+      const position=screenPoint(q,marker.s);
+      const visible=position[0]>=frame.left && position[0]<=frame.right && position[1]>=frame.top && position[1]<=frame.bottom;
+      if (!visible) return;
+      calibrationMarkerCount++;
+      const color=marker.satisfied ? "#2f8f5b" : "#c94c46";
+      svg.appendChild(svgNode("circle",{
+        cx:position[0],cy:position[1],r:7,fill:"#ffffff",stroke:color,"stroke-width":3
+      }));
+      svg.appendChild(svgNode("text",{
+        x:position[0]+10,y:position[1]-9,fill:color,"font-size":11,"font-weight":800,
+        "font-family":"Segoe UI, Microsoft YaHei UI, sans-serif",
+        stroke:"#ffffff","stroke-width":3,"paint-order":"stroke"
+      },`${marker.label} ${marker.satisfied ? "✓" : "×"}`));
+    });
+  }
+
   const centerLabel=screenPoint(qMin+(qMax-qMin)*0.04,0);
   svg.appendChild(svgNode("text",{
     x:centerLabel[0],y:centerLabel[1]-7,fill:"#667985","font-size":11,
@@ -597,7 +799,14 @@ function renderLayerDiagram(geometry,config,rangeData,limit) {
   svg.appendChild(svgNode("text",{x:axisOrigin[0]-4,y:axisOrigin[1]-axisLength-8,fill:"#245d78","font-size":13,"font-weight":700},projection.labels[1]));
 
   const condition=limit.enabled ? limit.condition : "未启用侧边界（显示完整薄层）";
-  const caption=`${projection.labels.join("–")} 投影；蓝色为上层，绿色为下层，浅色轮廓为裁剪前范围。${limit.enabled ? `橙线为 m·X=${clean(limit.K,precision)}，箭头指向保留侧。` : ""} ${condition}；n=${vectorText(n,precision)}${limit.enabled ? `，m=${vectorText(limit.m,precision)}` : ""}。`;
+  const calibrationCaption=calibration?.enabled && !calibration.error
+    ? calibrationMarkerCount===2
+      ? "参考点标记中，绿色表示满足目标约束，红色表示不满足。"
+      : calibrationMarkerCount===1
+        ? "一个参考点超出当前截面预览范围；可见点绿色表示满足目标约束、红色表示不满足。"
+        : "两个参考点均位于当前截面预览范围外，请查看校准文字结果。"
+    : "";
+  const caption=`${projection.labels.join("–")} 投影；蓝色为上层，绿色为下层，浅色轮廓为裁剪前范围。${limit.enabled ? `橙线为 m·X=${clean(limit.K,precision)}，箭头指向保留侧。` : ""} ${calibrationCaption} ${condition}；n=${vectorText(n,precision)}${limit.enabled ? `，m=${vectorText(limit.m,precision)}` : ""}。`;
   $("layerDiagramCaption").textContent=caption;
   svg.setAttribute("aria-label",`倾斜原子层动态截面图。${caption}`);
 }
@@ -628,6 +837,7 @@ function renderLayerRows() {
       input.addEventListener("change", syncLayerCalculations);
     });
   }
+  updateLayerCalibrationTargets();
 }
 
 function calculateLayerCommands() {
@@ -641,6 +851,13 @@ function calculateLayerCommands() {
       throw new Error("侧边界区域名称与某一层的自动名称重复，请修改高级命名设置。");
     }
     const rangeData=buildLayerRanges(config);
+    let calibration;
+    try {
+      calibration=evaluateLayerCalibration(geometry,config,rangeData,limit);
+    } catch(error) {
+      calibration={enabled:true,error:error.message};
+    }
+    renderLayerCalibration(calibration);
     const regionLines=[], groupLines=[], intervalLines=[];
     const samplePoint=limit.enabled ? limit.S : A;
 
@@ -677,10 +894,16 @@ function calculateLayerCommands() {
     const limitExplanation=limit.enabled
       ? `橙色侧边界使用 ${limit.sourceName} 作为保留方向参考轴：m=${vectorText(limit.m,precision)}。它位于中心倾斜面内，因此橙色界面与中心面垂直（m·n=${clean(dot(limit.m,n),precision)}）。\n侧边界经过 S=${vectorText(limit.S,precision)}，投影位置 K=m·S=${clean(limit.K,precision)}；保留 ${limit.condition}（LAMMPS side ${limit.regionSide}）。`
       : "侧边界已关闭；每层只由上下两条厚度边界限定。";
+    const calibrationExplanation=!calibration.enabled
+      ? "参考原子校准未启用。"
+      : calibration.error
+        ? `参考原子校准尚未完成：${calibration.error}`
+        : calibration.explanation;
     $("layerExplanation").textContent =
 `中心面由 A=${vectorText(A,precision)}、B=${vectorText(B,precision)}、C=${vectorText(C,precision)} 确定。
 定义法向距离 s=n·(X−A)，n=${vectorText(n,precision)} 指向上层。
 ${limitExplanation}
+${calibrationExplanation}
 以下 Z 坐标均在固定取样位置 (X,Y)=(${clean(samplePoint[0],precision)}, ${clean(samplePoint[1],precision)}) 计算；倾斜层在其他 X、Y 处的 Z 会相应改变。
 中心面两侧各排除 ${clean(config.tolerance,precision)} Å；以下半开区间从中心向外依次累计：
 ${intervalLines.join("\n")}
@@ -694,10 +917,15 @@ group ${config.upperGroup} union ${config.upperIds.join(" ")}
 group ${config.lowerGroup} union ${config.lowerIds.join(" ")}
 
 group ${config.remainingGroup} subtract all ${config.upperGroup} ${config.lowerGroup}`;
-    renderLayerDiagram(geometry,config,rangeData,limit);
+    renderLayerDiagram(geometry,config,rangeData,limit,calibration);
   } catch(e) {
     $("layerCode").textContent="请修正输入参数后重新计算。";
     ["layerNormalOut","layerEquationOut","layerCountOut","layerThicknessOut","layerLimitOut","layerVerticalSampleOut"].forEach(id=>$(id).textContent="—");
+    $("layerCalibrationOut").textContent=$("useLayerCalibration").checked ? "等待有效的原子层参数" : "未启用";
+    $("layerCalibrationOut").dataset.state=$("useLayerCalibration").checked ? "waiting" : "disabled";
+    $("layerCalibrationOut").dataset.cause=$("useLayerCalibration").checked ? "layer-error" : "";
+    $("applyLayerCalibration").disabled=true;
+    if ($("useLayerCalibration").checked) showMessage("layerCalibrationMessage",e.message,"warn");
     renderLayerDiagramError(e.message);
     showMessage("layerMessage",e.message);
   }
@@ -761,6 +989,26 @@ function updateLayerLimitControls() {
   $("layerLimitThresholdField").classList.toggle("hidden",!thresholdMode);
 }
 
+function applyLayerCalibrationRecommendation() {
+  clearMessage("layerMessage");
+  try {
+    const geometry=getLayerGeometry();
+    const config=getLayerConfiguration();
+    const limit=getLayerLimit(geometry);
+    const rangeData=buildLayerRanges(config);
+    const calibration=evaluateLayerCalibration(geometry,config,rangeData,limit);
+    if (!calibration.recommendation) throw new Error("当前两点没有可应用的目标层厚度，请先根据校准提示调整点或其他边界参数。");
+    const inputId=`${calibration.kind}Thickness${calibration.index}`;
+    const input=$(inputId);
+    if (!input) throw new Error("无法找到目标层对应的厚度输入框。");
+    input.value=clean(calibration.recommendation.thickness,geometry.precision);
+    syncLayerCalculations();
+  } catch(error) {
+    showMessage("layerCalibrationMessage",error.message,"error");
+    $("applyLayerCalibration").disabled=true;
+  }
+}
+
 $("layerCount").addEventListener("input", () => { renderLayerRows(); syncLayerCalculations(); });
 $("layerCount").addEventListener("change", () => { renderLayerRows(); syncLayerCalculations(); });
 $("useLayerLimit").addEventListener("change", () => { updateLayerLimitControls(); syncLayerCalculations(); });
@@ -770,6 +1018,17 @@ $("limitPointFromA").addEventListener("click", () => {
   ["x","y","z"].forEach(axis=>$("ls"+axis).value=$("la"+axis).value);
   syncLayerCalculations();
 });
+$("useLayerCalibration").addEventListener("change", () => { updateLayerCalibrationControls(); syncLayerCalculations(); });
+$("layerCalibrationTarget").addEventListener("change",syncLayerCalculations);
+["calInx","calIny","calInz","calOutx","calOuty","calOutz"].forEach(id => {
+  $(id).addEventListener("input",syncLayerCalculations);
+  $(id).addEventListener("change",syncLayerCalculations);
+});
+["upperPrefix","lowerPrefix"].forEach(id => {
+  $(id).addEventListener("input",updateLayerCalibrationTargets);
+  $(id).addEventListener("change",updateLayerCalibrationTargets);
+});
+$("applyLayerCalibration").addEventListener("click",applyLayerCalibrationRecommendation);
 $("layerDiagramProjection").addEventListener("change",calculateLayerCommands);
 $("moveDirectionSource").addEventListener("change", () => {
   $("customMoveDirection").classList.toggle("hidden", $("moveDirectionSource").value!=="custom");
@@ -795,6 +1054,8 @@ $("layerExample").addEventListener("click", () => {
   $("layerLimitId").value="layer_limit";
   $("lsx").value=5; $("lsy").value=0; $("lsz").value=5;
   updateLayerLimitControls();
+  $("useLayerCalibration").checked=false;
+  updateLayerCalibrationControls();
   $("moveDirectionSource").value="ab";
   $("customMoveDirection").classList.add("hidden");
   $("alongMoveDistance").value=0.5536; $("paperMoveDistance").value=0;
@@ -885,4 +1146,5 @@ $("calcPlane").click();
 calculateHexahedron();
 renderLayerRows();
 updateLayerLimitControls();
+updateLayerCalibrationControls();
 syncLayerCalculations();
