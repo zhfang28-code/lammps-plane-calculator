@@ -243,8 +243,8 @@ header p { margin: 8px 0 0; color: var(--muted); }
 }
 .layout {
   display: grid;
-  grid-template-columns: minmax(360px, .9fr) minmax(420px, 1.1fr);
-  gap: 16px;
+  grid-template-columns: minmax(420px, .95fr) minmax(500px, 1.05fr);
+  gap: 18px;
   align-items: start;
 }
 .card {
@@ -254,6 +254,43 @@ header p { margin: 8px 0 0; color: var(--muted); }
   box-shadow: 0 12px 30px rgba(20, 40, 50, .07);
   padding: 21px;
   min-width: 0;
+}
+.input-card,
+.result-card { border-top-width: 4px; }
+.input-card { border-top-color: #51bfe5; }
+.result-card {
+  position: sticky;
+  top: 88px;
+  max-height: calc(100vh - 106px);
+  overflow-y: auto;
+  border-top-color: var(--accent);
+  scrollbar-gutter: stable;
+}
+.input-card > h2,
+.result-card > h2 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.input-card > h2::after,
+.result-card > h2::after {
+  flex: none;
+  padding: 5px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .04em;
+}
+.input-card > h2::after {
+  content: "输入参数";
+  color: #075e78;
+  background: #e5f6fb;
+}
+.result-card > h2::after {
+  content: "实时观测";
+  color: var(--accent-dark);
+  background: var(--soft);
 }
 .layout > *, .displacement-layout > * { min-width: 0; }
 h2 { margin: 0 0 14px; font-size: 18px; }
@@ -284,6 +321,51 @@ input:focus, select:focus, textarea:focus {
 }
 .coord-grid > * { min-width: 0; }
 .coord-grid .axis { color: var(--muted); text-align: center; font-size: 12px; font-weight: 700; }
+.coordinate-stack {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 12px;
+}
+.coordinate-triplet-entry.calibration-coordinate-entry {
+  display: grid;
+  grid-template-columns: minmax(110px, .3fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  padding: 10px 11px;
+  border-color: #d5e2e7;
+  border-radius: 10px;
+  background: #fff;
+}
+.coordinate-triplet-label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  margin: 5px 0 0;
+  color: #455d69;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.coordinate-triplet-label .point-name {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border-radius: 8px;
+  color: #fff;
+  background: var(--accent);
+  font: 800 13px/1 Consolas, monospace;
+}
+.coordinate-triplet-control { min-width: 0; }
+.coordinate-triplet-input {
+  font-family: Consolas, "Cascadia Mono", monospace;
+  letter-spacing: .01em;
+}
+.coordinate-triplet-entry .coordinate-recognition {
+  min-height: 16px;
+  margin: 5px 2px 0;
+}
 .point-name {
   text-align: center;
   font-weight: 750;
@@ -310,7 +392,7 @@ input:focus, select:focus, textarea:focus {
   padding: 15px;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: #fbfcfd;
+  background: linear-gradient(180deg, #fbfcfd, #f8fafb);
 }
 .form-section > :last-child { margin-bottom: 0; }
 .section-heading {
@@ -546,6 +628,14 @@ details.command-panel.explanation-panel > summary { color: var(--text); font-siz
   grid-template-columns: minmax(330px, .8fr) minmax(430px, 1.2fr);
   gap: 18px;
 }
+.displacement-input-pane,
+.displacement-result-pane {
+  padding: 15px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.displacement-input-pane { background: #f8fbfc; }
+.displacement-result-pane { background: #fbfdfd; }
 .move-direction-points {
   display: grid;
   gap: 10px;
@@ -796,6 +886,11 @@ footer { margin-top: 16px; color: var(--muted); text-align: center; font-size: 1
   .section-side-button { flex: 0 0 auto; }
   .section-side-button { width: auto; min-width: 112px; }
   .side-nav-target { scroll-margin-top: 86px; }
+  .result-card {
+    position: static;
+    max-height: none;
+    overflow-y: visible;
+  }
 }
 @media (max-width: 850px) {
   header { display: block; }

@@ -7,7 +7,14 @@ const cross = (a,b) => [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]
 const norm = a => Math.hypot(...a);
 const scale = (a,s) => a.map(v => v*s);
 const normalized = a => scale(a, 1/norm(a));
-const readPoint = prefix => ["x","y","z"].map(axis => Number($(prefix+axis).value));
+const readPoint = prefix => {
+  const tripletInput=$(prefix+"xyz");
+  if (tripletInput) {
+    try { return parseCoordinateTriplet(tripletInput.value,prefix.toUpperCase()).point; }
+    catch { return [NaN,NaN,NaN]; }
+  }
+  return ["x","y","z"].map(axis => Number($(prefix+axis)?.value));
+};
 const validPoint = p => p.every(Number.isFinite);
 const validId = id => /^[A-Za-z_][A-Za-z0-9_]*$/.test(id);
 const clean = (v,p) => {
@@ -61,6 +68,10 @@ function initializeCollapsibleFormSections() {
     body.id=`${section.id}-body`;
     heading.appendChild(toggle);
     toggle.addEventListener("click",()=>setFormSectionCollapsed(section,!section.classList.contains("collapsed")));
+  });
+  document.querySelectorAll(".input-card").forEach(card => {
+    const sections=[...card.querySelectorAll(":scope > .form-section")];
+    sections.forEach((section,index)=>setFormSectionCollapsed(section,index>0));
   });
 }
 
@@ -191,7 +202,9 @@ write_dump ${id}_atoms custom ${id}_atoms.lammpstrj id type x y z`;
 
 $("planeExample").addEventListener("click", () => {
   $("planeMode").value="line"; $("planeMode").dispatchEvent(new Event("change"));
-  [["ax",0],["ay",100],["az",50],["bx",0],["by",200],["bz",250],["cx",1],["cy",0],["cz",0]].forEach(([id,v])=>$(id).value=v);
+  assignPoint("a",[0,100,50]);
+  assignPoint("b",[0,200,250]);
+  assignPoint("c",[1,0,0]);
   $("planeId").value="yz_boundary";
   $("calcPlane").click();
 });
@@ -355,10 +368,7 @@ write_dump ${id}_atoms custom ${id}_atoms.lammpstrj id type x y z`;
 
 $("calcHexa").addEventListener("click",calculateHexahedron);
 $("hexaExample").addEventListener("click", () => {
-  const values={
-    hax:0,hay:0,haz:0,hbx:0,hby:10,hbz:0,hcx:0,hcy:10,hcz:10,hdx:0,hdy:0,hdz:10
-  };
-  Object.entries(values).forEach(([fieldId,value])=>$(fieldId).value=value);
+  [[0,0,0],[0,10,0],[0,10,10],[0,0,10]].forEach((point,index)=>assignPoint(HEXA_BASE_PREFIXES[index],point));
   $("hexaThickness").value=12;
   $("hexaExtrudeDirection").value="positive";
   $("hexaId").value="hexa";
@@ -551,7 +561,10 @@ function parseCoordinateTriplet(text,label="参考点") {
 }
 
 function updateCalibrationCoordinateRecognition(input) {
-  const output=input.closest(".calibration-coordinate-entry").querySelector(".coordinate-recognition");
+  const entry=input.closest(".calibration-coordinate-entry");
+  const output=entry?.querySelector(".coordinate-recognition");
+  if (!output) return;
+  const label=entry.querySelector(".coordinate-triplet-label")?.textContent.replace(/\s+/g," ").trim() || "该点";
   const text=input.value.trim();
   if (!text) {
     output.textContent="等待粘贴三个 XYZ 坐标";
@@ -559,7 +572,7 @@ function updateCalibrationCoordinateRecognition(input) {
     return;
   }
   try {
-    const {point,extraCount}=parseCoordinateTriplet(text,"该点");
+    const {point,extraCount}=parseCoordinateTriplet(text,label);
     output.textContent=`已识别 XYZ = (${point.join(", ")})${extraCount ? `；另有 ${extraCount} 个数字未使用` : ""}`;
     output.dataset.state=extraCount ? "warning" : "valid";
   } catch(error) {
@@ -1476,7 +1489,7 @@ $("limitPointFromA").addEventListener("click", () => {
   clearMessage("layerMessage");
   try {
     const {A}=getLayerGeometry();
-    ["x","y","z"].forEach((axis,index)=>$("ls"+axis).value=A[index]);
+    assignPoint("ls",A);
     syncLayerCalculations();
   } catch(error) {
     showMessage("layerMessage",error.message);
@@ -1517,8 +1530,9 @@ $("moveDirectionSource").addEventListener("change", () => {
 $("calcLayers").addEventListener("click", syncLayerCalculations);
 $("calcDisplacement").addEventListener("click", calculateDisplacement);
 $("layerExample").addEventListener("click", () => {
-  const values={lax:0,lay:0,laz:0,lbx:10,lby:0,lbz:10,lcx:0,lcy:10,lcz:0};
-  Object.entries(values).forEach(([id,value])=>$(id).value=value);
+  assignPoint("la",[0,0,0]);
+  assignPoint("lb",[10,0,10]);
+  assignPoint("lc",[0,10,0]);
   $("layerNormalDirection").value="forward";
   $("useMidplanePosition").checked=false;
   ["midplaneAtom1","midplaneAtom2"].forEach(id=>{
@@ -1538,7 +1552,7 @@ $("layerExample").addEventListener("click", () => {
   $("layerLimitSide").value="less";
   $("layerLimitMode").value="point";
   $("layerLimitId").value="layer_limit";
-  $("lsx").value=5; $("lsy").value=0; $("lsz").value=5;
+  assignPoint("ls",[5,0,5]);
   updateLayerLimitControls();
   $("useLayerCalibration").checked=false;
   updateLayerCalibrationControls();
@@ -1560,7 +1574,15 @@ function parsePastedPoints(areaId) {
     return matches && matches.length>=3 ? matches.slice(0,3).map(Number) : null;
   }).filter(Boolean);
 }
-function assignPoint(prefix,p) { ["x","y","z"].forEach((axis,i)=>$(prefix+axis).value=p[i]); }
+function assignPoint(prefix,p) {
+  const tripletInput=$(prefix+"xyz");
+  if (tripletInput) {
+    tripletInput.value=p.join(" ");
+    updateCalibrationCoordinateRecognition(tripletInput);
+    return;
+  }
+  ["x","y","z"].forEach((axis,i)=>$(prefix+axis).value=p[i]);
+}
 $("pastePlane").addEventListener("click", () => {
   clearMessage("planePasteMessage");
   const points=parsePastedPoints("planePasteArea");
@@ -1604,15 +1626,14 @@ document.querySelectorAll("[data-copy]").forEach(button => {
 // Keep results synchronized with all editable inputs. This prevents stale
 // commands from being copied after coordinates or the Region ID change.
 [
-  "planeMode","planeId","ax","ay","az","bx","by","bz","cx","cy","cz",
-  "useInside","qx","qy","qz","planeSide","planePrecision","planeUnits","atomskInput","atomskOutput","atomskTolerance"
+  "planeMode","planeId","axyz","bxyz","cxyz",
+  "useInside","qxyz","planeSide","planePrecision","planeUnits","atomskInput","atomskOutput","atomskTolerance"
 ].forEach(id => {
   $(id).addEventListener("input", () => $("calcPlane").click());
   $(id).addEventListener("change", () => $("calcPlane").click());
 });
 [
-  "hexaId","hax","hay","haz","hbx","hby","hbz",
-  "hcx","hcy","hcz","hdx","hdy","hdz","hexaThickness","hexaExtrudeDirection",
+  "hexaId","haxyz","hbxyz","hcxyz","hdxyz","hexaThickness","hexaExtrudeDirection",
   "hexaPrecision","hexaUnits","hexaTolerance","hexaAtomskTolerance",
   "hexaAtomskInput","hexaAtomskOutput"
 ].forEach(id => {
@@ -1620,18 +1641,23 @@ document.querySelectorAll("[data-copy]").forEach(button => {
   $(id).addEventListener("change",calculateHexahedron);
 });
 [
-  "lax","lay","laz","lbx","lby","lbz","lcx","lcy","lcz",
+  "laxyz","lbxyz","lcxyz",
   "layerNormalDirection","layerTolerance","upperPrefix","lowerPrefix",
   "upperUnionGroup","lowerUnionGroup","moveGroup","layerPrecision",
-  "layerLimitSide","layerLimitId","lvx","lvy","lvz",
-  "lsx","lsy","lsz","layerLimitK"
+  "layerLimitSide","layerLimitId","lvxyz",
+  "lsxyz","layerLimitK"
 ].forEach(id => {
   $(id).addEventListener("input", syncLayerCalculations);
   $(id).addEventListener("change", syncLayerCalculations);
 });
-["mvx","mvy","mvz","alongMoveDistance","paperMoveDistance","directMoveX","directMoveY","directMoveZ"].forEach(id => {
+["mvxyz","alongMoveDistance","paperMoveDistance","directMoveX","directMoveY","directMoveZ"].forEach(id => {
   $(id).addEventListener("input", calculateDisplacement);
   $(id).addEventListener("change", calculateDisplacement);
+});
+
+document.querySelectorAll(".coordinate-triplet-input").forEach(input => {
+  updateCalibrationCoordinateRecognition(input);
+  input.addEventListener("input",()=>updateCalibrationCoordinateRecognition(input));
 });
 
 $("calcPlane").click();
