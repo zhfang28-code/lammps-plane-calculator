@@ -323,48 +323,53 @@ input:focus, select:focus, textarea:focus {
 .coord-grid .axis { color: var(--muted); text-align: center; font-size: 12px; font-weight: 700; }
 .coordinate-stack {
   display: grid;
-  gap: 8px;
-  margin: 10px 0 12px;
+  gap: 6px;
+  margin: 8px 0 10px;
 }
 .coordinate-triplet-entry.calibration-coordinate-entry {
   display: grid;
-  grid-template-columns: minmax(110px, .3fr) minmax(0, 1fr);
+  grid-template-columns: minmax(94px, .25fr) minmax(0, 1fr);
   align-items: start;
-  gap: 10px;
-  padding: 10px 11px;
+  gap: 8px;
+  padding: 7px 9px;
   border-color: #d5e2e7;
-  border-radius: 10px;
+  border-radius: 9px;
   background: #fff;
 }
 .coordinate-triplet-label {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 7px;
   min-width: 0;
-  margin: 5px 0 0;
+  margin: 3px 0 0;
   color: #455d69;
-  font-size: 12px;
-  line-height: 1.35;
+  font-size: 11px;
+  line-height: 1.3;
 }
 .coordinate-triplet-label .point-name {
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
+  width: 26px;
+  height: 26px;
   flex: none;
-  border-radius: 8px;
+  border-radius: 7px;
   color: #fff;
   background: var(--accent);
-  font: 800 13px/1 Consolas, monospace;
+  font: 800 11px/1 Consolas, monospace;
 }
 .coordinate-triplet-control { min-width: 0; }
 .coordinate-triplet-input {
+  padding: 7px 9px;
   font-family: Consolas, "Cascadia Mono", monospace;
+  font-size: 12px;
+  line-height: 1.3;
   letter-spacing: .01em;
 }
 .coordinate-triplet-entry .coordinate-recognition {
-  min-height: 16px;
-  margin: 5px 2px 0;
+  min-height: 13px;
+  margin: 3px 2px 0;
+  font-size: 10px;
+  line-height: 1.3;
 }
 .point-name {
   text-align: center;
@@ -638,8 +643,8 @@ details.command-panel.explanation-panel > summary { color: var(--text); font-siz
 .displacement-result-pane { background: #fbfdfd; }
 .move-direction-points {
   display: grid;
-  gap: 10px;
-  margin: 0 0 13px;
+  gap: 6px;
+  margin: 0 0 11px;
 }
 .direct-displacement-grid {
   margin: 10px 0 12px;
@@ -715,13 +720,8 @@ details.command-panel.explanation-panel > summary { color: var(--text); font-siz
   grid-template-columns: minmax(0, 1fr);
   gap: 10px;
 }
-.midplane-atom-grid {
-  display: grid;
-  gap: 10px;
-}
 .midplane-result-grid { margin-top: 12px; }
 .midplane-result-grid .midplane-distance-metric { grid-column: 1 / -1; }
-.midplane-coordinate-entry { padding: 9px; }
 .calibration-point-card {
   min-width: 0;
   padding: 11px;
@@ -733,18 +733,21 @@ details.command-panel.explanation-panel > summary { color: var(--text); font-siz
 .calibration-point-card .help { margin: 0 0 9px; }
 .calibration-coordinate-input {
   width: 100%;
+  padding: 7px 9px;
   font-family: Consolas, "SFMono-Regular", monospace;
+  font-size: 12px;
+  line-height: 1.3;
 }
 .calibration-point-list {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   max-height: 360px;
   margin-bottom: 9px;
   overflow-y: auto;
   scrollbar-gutter: stable;
 }
 .calibration-coordinate-entry {
-  padding: 8px;
+  padding: 6px;
   border: 1px solid #e0e8ec;
   border-radius: 8px;
   background: #ffffff;
@@ -757,7 +760,7 @@ details.command-panel.explanation-panel > summary { color: var(--text); font-siz
 }
 .calibration-point-label {
   color: var(--accent-dark);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
 }
 .calibration-point-remove {
@@ -770,11 +773,11 @@ details.command-panel.explanation-panel > summary { color: var(--text); font-siz
   font-size: 12px;
 }
 .coordinate-recognition {
-  min-height: 20px;
-  margin: 7px 1px 0;
+  min-height: 13px;
+  margin: 3px 2px 0;
   color: var(--muted);
-  font-size: 11px;
-  line-height: 1.45;
+  font-size: 10px;
+  line-height: 1.3;
 }
 .coordinate-recognition[data-state="valid"] { color: #17633d; }
 .coordinate-recognition[data-state="warning"] { color: var(--warn); }

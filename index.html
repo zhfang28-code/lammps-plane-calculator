@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>LAMMPS 平面、倾斜原子层与六面体计算器</title>
-  <link rel="stylesheet" href="assets/css/styles.css?v=20260829-1">
+  <link rel="stylesheet" href="assets/css/styles.css?v=20260829-2">
 </head>
 <body>
   <main class="shell">
@@ -419,20 +419,18 @@
               启用双原子中点定位中心面
             </label>
             <div id="midplaneFields" class="limit-box hidden">
-              <div class="midplane-atom-grid">
-                <div class="calibration-point-card">
-                  <h4>界面第一侧原子 P1</h4>
-                  <p class="help">直接粘贴该原子的 X、Y、Z 坐标。</p>
-                  <div class="calibration-coordinate-entry midplane-coordinate-entry">
-                    <input id="midplaneAtom1" class="calibration-coordinate-input midplane-coordinate-input" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="例如：14.0199 261.154 125.018">
+              <div class="coordinate-stack paired-coordinate-stack" aria-label="中心面两侧原子坐标">
+                <div class="coordinate-triplet-entry calibration-coordinate-entry midplane-coordinate-entry">
+                  <label class="coordinate-triplet-label" for="midplaneAtom1"><span class="point-name">P1</span><span>界面第一侧原子</span></label>
+                  <div class="coordinate-triplet-control">
+                    <input id="midplaneAtom1" class="coordinate-triplet-input calibration-coordinate-input midplane-coordinate-input" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="粘贴 P1 的 X Y Z，例如：14.0199 261.154 125.018">
                     <p class="coordinate-recognition" data-state="empty">等待粘贴三个 XYZ 坐标</p>
                   </div>
                 </div>
-                <div class="calibration-point-card">
-                  <h4>界面第二侧原子 P2</h4>
-                  <p class="help">选择位于相邻一侧、与 P1 共同夹住中心面的原子。</p>
-                  <div class="calibration-coordinate-entry midplane-coordinate-entry">
-                    <input id="midplaneAtom2" class="calibration-coordinate-input midplane-coordinate-input" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="例如：12.5444 258.597 129.701">
+                <div class="coordinate-triplet-entry calibration-coordinate-entry midplane-coordinate-entry">
+                  <label class="coordinate-triplet-label" for="midplaneAtom2"><span class="point-name">P2</span><span>界面第二侧原子</span></label>
+                  <div class="coordinate-triplet-control">
+                    <input id="midplaneAtom2" class="coordinate-triplet-input calibration-coordinate-input midplane-coordinate-input" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="粘贴 P2 的 X Y Z，例如：12.5444 258.597 129.701">
                     <p class="coordinate-recognition" data-state="empty">等待粘贴三个 XYZ 坐标</p>
                   </div>
                 </div>
@@ -647,20 +645,18 @@
                 </select>
               </div>
 
-              <div id="twoPointMoveDirection" class="move-direction-points hidden">
-                <div class="calibration-point-card">
-                  <h4>方向起点 P</h4>
-                  <p class="help">直接粘贴起点的 X、Y、Z 坐标。</p>
-                  <div class="calibration-coordinate-entry">
-                    <input id="moveDirectionPoint1" class="calibration-coordinate-input" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="例如：14.0199 259.451 122.676">
+              <div id="twoPointMoveDirection" class="move-direction-points coordinate-stack paired-coordinate-stack hidden" aria-label="位移方向两点坐标">
+                <div class="coordinate-triplet-entry calibration-coordinate-entry">
+                  <label class="coordinate-triplet-label" for="moveDirectionPoint1"><span class="point-name">P</span><span>方向起点</span></label>
+                  <div class="coordinate-triplet-control">
+                    <input id="moveDirectionPoint1" class="coordinate-triplet-input calibration-coordinate-input" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="粘贴起点 P 的 X Y Z，例如：14.0199 259.451 122.676">
                     <p class="coordinate-recognition" data-state="empty">等待粘贴三个 XYZ 坐标</p>
                   </div>
                 </div>
-                <div class="calibration-point-card">
-                  <h4>方向终点 Q</h4>
-                  <p class="help">程序使用 Q−P，并自动投影到当前倾斜面。</p>
-                  <div class="calibration-coordinate-entry">
-                    <input id="moveDirectionPoint2" class="calibration-coordinate-input" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="例如：12.5444 256.894 127.359">
+                <div class="coordinate-triplet-entry calibration-coordinate-entry">
+                  <label class="coordinate-triplet-label" for="moveDirectionPoint2"><span class="point-name">Q</span><span>方向终点</span></label>
+                  <div class="coordinate-triplet-control">
+                    <input id="moveDirectionPoint2" class="coordinate-triplet-input calibration-coordinate-input" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="粘贴终点 Q 的 X Y Z，例如：12.5444 256.894 127.359">
                     <p class="coordinate-recognition" data-state="empty">等待粘贴三个 XYZ 坐标</p>
                   </div>
                 </div>
@@ -736,6 +732,6 @@
     <footer>坐标必须处于同一个周期映像中；跨周期边界时，请先使用展开坐标 xu、yu、zu。</footer>
   </main>
 
-  <script src="assets/js/app.js?v=20260829-1"></script>
+  <script src="assets/js/app.js?v=20260829-2"></script>
 </body>
 </html>
