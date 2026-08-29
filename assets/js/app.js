@@ -7,7 +7,52 @@ const cross = (a,b) => [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]
 const norm = a => Math.hypot(...a);
 const scale = (a,s) => a.map(v => v*s);
 const normalized = a => scale(a, 1/norm(a));
+
+const FIXED_BATCH_DEFINITIONS={
+  planePointBatch:[
+    {prefix:"a",label:"A",description:"原子 A"},
+    {prefix:"b",label:"B",description:"原子 B"},
+    {prefix:"c",label:()=>$("planeMode")?.value==="line" ? "E" : "C",description:()=>$("planeMode")?.value==="line" ? "延伸方向 E" : "原子 C"}
+  ],
+  hexaPointBatch:[
+    {prefix:"ha",label:"A",description:"底面顶点 A"},
+    {prefix:"hb",label:"B",description:"底面顶点 B"},
+    {prefix:"hc",label:"C",description:"底面顶点 C"},
+    {prefix:"hd",label:"D",description:"底面顶点 D"}
+  ],
+  layerPointBatch:[
+    {prefix:"la",label:"A",description:"基础点 A"},
+    {prefix:"lb",label:"B",description:"基础点 B"},
+    {prefix:"lc",label:"C",description:"基础点 C"}
+  ],
+  midplanePointBatch:[
+    {prefix:"midplaneP1",label:"P1",description:"界面第一侧原子"},
+    {prefix:"midplaneP2",label:"P2",description:"界面第二侧原子"}
+  ],
+  moveDirectionPointBatch:[
+    {prefix:"moveP",label:"P",description:"方向起点"},
+    {prefix:"moveQ",label:"Q",description:"方向终点"}
+  ]
+};
+const FIXED_POINT_BINDINGS=Object.fromEntries(
+  Object.entries(FIXED_BATCH_DEFINITIONS).flatMap(([inputId,definitions]) =>
+    definitions.map((definition,index)=>[definition.prefix,{inputId,index,definition}])
+  )
+);
+const fixedBatchLines=input=>input.value.replace(/\r/g,"").split("\n");
+const fixedBatchText=value=>typeof value==="function" ? value() : value;
+function readFixedBatchPoint(inputId,index,label) {
+  const input=$(inputId);
+  const line=input ? fixedBatchLines(input)[index] || "" : "";
+  return parseCoordinateTriplet(line,label).point;
+}
 const readPoint = prefix => {
+  const batchBinding=FIXED_POINT_BINDINGS[prefix];
+  if (batchBinding) {
+    const label=fixedBatchText(batchBinding.definition.label);
+    try { return readFixedBatchPoint(batchBinding.inputId,batchBinding.index,label); }
+    catch { return [NaN,NaN,NaN]; }
+  }
   const tripletInput=$(prefix+"xyz");
   if (tripletInput) {
     try { return parseCoordinateTriplet(tripletInput.value,prefix.toUpperCase()).point; }
@@ -116,10 +161,10 @@ document.querySelectorAll(".section-sidebar").forEach(sidebar => {
 
 $("planeMode").addEventListener("change", () => {
   const line = $("planeMode").value === "line";
-  $("thirdLabel").textContent = line ? "E" : "C";
   $("thirdHelp").textContent = line
     ? "E 是平面的延伸方向向量。例如从 X 方向观察 Y–Z 边界线时，填写 E=(1,0,0)。"
     : "C 是平面上的第三个原子，A、B、C 不能共线。";
+  updateFixedCoordinateBatch($("planePointBatch"));
 });
 $("useInside").addEventListener("change", () => $("insideFields").classList.toggle("hidden", !$("useInside").checked));
 
@@ -379,8 +424,8 @@ function getMidplanePositioning(rawA,rawB,rawC,n,precision) {
   if (!$("useMidplanePosition").checked) {
     return {enabled:false,A:rawA,B:rawB,C:rawC};
   }
-  const P1=parseCoordinateTriplet($("midplaneAtom1").value,"第一侧原子 P1").point;
-  const P2=parseCoordinateTriplet($("midplaneAtom2").value,"第二侧原子 P2").point;
+  const P1=readFixedBatchPoint("midplanePointBatch",0,"第一侧原子 P1");
+  const P2=readFixedBatchPoint("midplanePointBatch",1,"第二侧原子 P2");
   if (norm(sub(P2,P1))<EPS) throw new Error("P1 与 P2 不能是同一个坐标，请选择界面两侧的两个不同原子。");
   if (Math.abs(n[2])<1e-8) throw new Error("当前倾斜面的 n_z≈0，平面在固定 X/Y 处没有唯一 Z，无法用双原子中点确定 Z 位置。");
   const midpoint=scale(add(P1,P2),0.5);
@@ -546,7 +591,6 @@ function buildLayerRanges(config) {
 
 const CALIBRATION_NUMBER_PATTERN=/[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?/g;
 let layerCalibrationItemCounter=0;
-let layerCalibrationPointCounter=0;
 
 function layerCalibrationItems() {
   return [...document.querySelectorAll("#layerCalibrationItems .calibration-item")];
@@ -558,6 +602,86 @@ function parseCoordinateTriplet(text,label="参考点") {
   const point=matches.slice(0,3).map(Number);
   if (!validPoint(point)) throw new Error(`${label} 的坐标必须是有效数值。`);
   return {point,extraCount:Math.max(0,matches.length-3)};
+}
+
+function updateFixedCoordinateBatch(input) {
+  if (!input) return;
+  const definitions=FIXED_BATCH_DEFINITIONS[input.id];
+  const output=input.closest(".coordinate-batch-entry")?.querySelector(".coordinate-batch-recognition");
+  if (!definitions || !output) return;
+  const lines=fixedBatchLines(input);
+  output.textContent="";
+  definitions.forEach((definition,index) => {
+    const label=fixedBatchText(definition.label);
+    const description=fixedBatchText(definition.description);
+    const row=document.createElement("p");
+    row.className="coordinate-batch-recognition-row";
+    const line=(lines[index] || "").trim();
+    if (!line) {
+      row.textContent=`第 ${index+1} 行 · ${label}（${description}）：等待 XYZ`;
+      row.dataset.state="empty";
+    } else {
+      try {
+        const {point,extraCount}=parseCoordinateTriplet(line,`${label}（第 ${index+1} 行）`);
+        row.textContent=`第 ${index+1} 行 · ${label} = (${point.join(", ")})${extraCount ? `；另有 ${extraCount} 个数字未使用` : ""}`;
+        row.dataset.state=extraCount ? "warning" : "valid";
+      } catch(error) {
+        row.textContent=`第 ${index+1} 行 · ${label}：${error.message}`;
+        row.dataset.state="invalid";
+      }
+    }
+    output.appendChild(row);
+  });
+  const extraRows=lines
+    .map((line,index)=>({line:line.trim(),index}))
+    .filter(row=>row.index>=definitions.length && row.line);
+  if (extraRows.length) {
+    const warning=document.createElement("p");
+    warning.className="coordinate-batch-recognition-row";
+    warning.dataset.state="warning";
+    warning.textContent=`第 ${extraRows.map(row=>row.index+1).join("、")} 行超出本组需要的 ${definitions.length} 个点，未参与计算。`;
+    output.appendChild(warning);
+  }
+}
+
+function nonEmptyCoordinateRows(input) {
+  if (!input) return [];
+  return input.value.replace(/\r/g,"").split("\n")
+    .map((text,lineIndex)=>({text:text.trim(),lineIndex}))
+    .filter(row=>row.text);
+}
+
+function updateCalibrationBatchRecognition(input) {
+  const item=input.closest(".calibration-item");
+  const card=input.closest(".calibration-point-card");
+  const output=card?.querySelector(".calibration-batch-recognition");
+  if (!item || !output) return;
+  const role=input.dataset.pointRole;
+  const prefix=role==="inside" ? "P_in" : "P_out";
+  const rows=nonEmptyCoordinateRows(input);
+  output.textContent="";
+  if (!rows.length) {
+    const waiting=document.createElement("p");
+    waiting.className="coordinate-batch-recognition-row";
+    waiting.dataset.state="empty";
+    waiting.textContent="等待粘贴坐标；每个非空行识别为一个原子。";
+    output.appendChild(waiting);
+  } else {
+    rows.forEach((row,index) => {
+      const recognition=document.createElement("p");
+      recognition.className="coordinate-batch-recognition-row";
+      try {
+        const {point,extraCount}=parseCoordinateTriplet(row.text,`${prefix}${index+1}（原第 ${row.lineIndex+1} 行）`);
+        recognition.textContent=`第 ${row.lineIndex+1} 行 · ${prefix}${index+1} = (${point.join(", ")})${extraCount ? `；另有 ${extraCount} 个数字未使用` : ""}`;
+        recognition.dataset.state=extraCount ? "warning" : "valid";
+      } catch(error) {
+        recognition.textContent=`第 ${row.lineIndex+1} 行 · ${prefix}${index+1}：${error.message}`;
+        recognition.dataset.state="invalid";
+      }
+      output.appendChild(recognition);
+    });
+  }
+  updateCalibrationItemBrief(item);
 }
 
 function updateCalibrationCoordinateRecognition(input) {
@@ -600,8 +724,8 @@ function updateCalibrationItemBrief(item,statusText) {
   if (statusText!==undefined) item.dataset.calibrationStatus=statusText;
   const select=item.querySelector(".calibration-target");
   const targetLabel=select?.selectedOptions[0]?.textContent.replace(/（.*$/," ").trim() || "未选择目标层";
-  const insideCount=item.querySelectorAll('.calibration-coordinate-entry[data-point-role="inside"]').length;
-  const outsideCount=item.querySelectorAll('.calibration-coordinate-entry[data-point-role="outside"]').length;
+  const insideCount=nonEmptyCoordinateRows(item.querySelector('.calibration-points-input[data-point-role="inside"]')).length;
+  const outsideCount=nonEmptyCoordinateRows(item.querySelector('.calibration-points-input[data-point-role="outside"]')).length;
   const status=item.dataset.calibrationStatus || "等待坐标";
   item.querySelector(".calibration-item-brief").textContent=`${targetLabel} · 层内 ${insideCount} 点 / 层外 ${outsideCount} 点 · ${status}`;
 }
@@ -656,49 +780,6 @@ function updateLayerCalibrationTargets() {
   addButton.title=addButton.disabled && targets.length ? "所有目标层都已添加校准组" : "";
 }
 
-function updateCalibrationPointLabels(item,role) {
-  const entries=[...item.querySelectorAll(`.calibration-coordinate-entry[data-point-role="${role}"]`)];
-  entries.forEach((entry,index) => {
-    const pointLabel=role==="inside" ? "P_in" : "P_out";
-    entry.querySelector(".calibration-point-label").textContent=`${pointLabel}${index+1}`;
-    const input=entry.querySelector(".calibration-coordinate-input");
-    input.setAttribute("aria-label",`${role==="inside" ? "层内" : "层外"}参考点 ${index+1} 的 XYZ 坐标`);
-    entry.querySelector(".calibration-point-remove").disabled=entries.length===1;
-  });
-  updateCalibrationItemBrief(item);
-}
-
-function addCalibrationPoint(item,role,value="",shouldSync=true) {
-  const list=item.querySelector(`.calibration-point-list[data-point-role="${role}"]`);
-  const entry=document.createElement("div");
-  const pointId=`calibrationPoint${++layerCalibrationPointCounter}`;
-  entry.className="calibration-coordinate-entry";
-  entry.dataset.pointRole=role;
-  entry.innerHTML=`
-    <div class="calibration-coordinate-row">
-      <label class="calibration-point-label" for="${pointId}"></label>
-      <input id="${pointId}" class="calibration-coordinate-input" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="例如：14.0199 261.154 125.018">
-      <button class="secondary calibration-point-remove" type="button" aria-label="删除此参考点">删除</button>
-    </div>
-    <p class="coordinate-recognition" data-state="empty"></p>`;
-  list.appendChild(entry);
-  const input=entry.querySelector(".calibration-coordinate-input");
-  input.value=value;
-  updateCalibrationCoordinateRecognition(input);
-  input.addEventListener("input",() => {
-    updateCalibrationCoordinateRecognition(input);
-    syncLayerCalculations();
-  });
-  input.addEventListener("change",syncLayerCalculations);
-  entry.querySelector(".calibration-point-remove").addEventListener("click",() => {
-    entry.remove();
-    updateCalibrationPointLabels(item,role);
-    syncLayerCalculations();
-  });
-  updateCalibrationPointLabels(item,role);
-  if (shouldSync) syncLayerCalculations();
-}
-
 function createLayerCalibrationItem(preferredTarget="",shouldSync=true) {
   const item=document.createElement("section");
   const itemId=++layerCalibrationItemCounter;
@@ -724,15 +805,15 @@ function createLayerCalibrationItem(preferredTarget="",shouldSync=true) {
     <div class="calibration-point-grid">
       <div class="calibration-point-card">
         <h4>必须在目标层内的原子</h4>
-        <p class="help">全部层内点都必须被此目标层选中。</p>
-        <div class="calibration-point-list" data-point-role="inside"></div>
-        <button class="secondary add-calibration-point" data-point-role="inside" type="button">＋ 添加层内点</button>
+        <p class="help">在一个框内粘贴全部层内点；每个非空行自动识别为 P_in1、P_in2……</p>
+        <textarea id="calibrationInside${itemId}" class="calibration-points-input" data-point-role="inside" rows="3" autocomplete="off" spellcheck="false" placeholder="每行一个 XYZ 坐标，例如：&#10;14.0199 261.154 125.018&#10;12.5444 263.710 125.019"></textarea>
+        <div class="coordinate-batch-recognition calibration-batch-recognition" aria-live="polite"></div>
       </div>
       <div class="calibration-point-card">
         <h4>必须在目标层外的原子</h4>
-        <p class="help">全部层外点都必须被此目标层排除。</p>
-        <div class="calibration-point-list" data-point-role="outside"></div>
-        <button class="secondary add-calibration-point" data-point-role="outside" type="button">＋ 添加层外点</button>
+        <p class="help">在一个框内粘贴全部层外点；每个非空行自动识别为 P_out1、P_out2……</p>
+        <textarea id="calibrationOutside${itemId}" class="calibration-points-input" data-point-role="outside" rows="3" autocomplete="off" spellcheck="false" placeholder="每行一个 XYZ 坐标，例如：&#10;14.0199 266.265 125.020&#10;12.5444 258.598 125.017"></textarea>
+        <div class="coordinate-batch-recognition calibration-batch-recognition" aria-live="polite"></div>
       </div>
     </div>
     <details class="calibration-result-details">
@@ -744,8 +825,14 @@ function createLayerCalibrationItem(preferredTarget="",shouldSync=true) {
     </div>
     </div>`;
   $("layerCalibrationItems").appendChild(item);
-  addCalibrationPoint(item,"inside","",false);
-  addCalibrationPoint(item,"outside","",false);
+  item.querySelectorAll(".calibration-points-input").forEach(input => {
+    updateCalibrationBatchRecognition(input);
+    input.addEventListener("input",() => {
+      updateCalibrationBatchRecognition(input);
+      syncLayerCalculations();
+    });
+    input.addEventListener("change",syncLayerCalculations);
+  });
   item.querySelector(".calibration-target").addEventListener("change",() => {
     updateLayerCalibrationTargets();
     syncLayerCalculations();
@@ -757,9 +844,6 @@ function createLayerCalibrationItem(preferredTarget="",shouldSync=true) {
     item.remove();
     updateLayerCalibrationTargets();
     syncLayerCalculations();
-  });
-  item.querySelectorAll(".add-calibration-point").forEach(button => {
-    button.addEventListener("click",()=>addCalibrationPoint(item,button.dataset.pointRole));
   });
   item.querySelector(".apply-calibration").addEventListener("click",()=>applyLayerCalibrationRecommendation(item));
   updateLayerCalibrationTargets();
@@ -800,9 +884,10 @@ function layerLimitMembership(point,limit) {
 }
 
 function readCalibrationPoints(item,role,label) {
-  const inputs=[...item.querySelectorAll(`.calibration-coordinate-entry[data-point-role="${role}"] .calibration-coordinate-input`)];
-  if (!inputs.length) throw new Error(`${label}至少需要一个参考点。`);
-  return inputs.map((input,index)=>parseCoordinateTriplet(input.value,`${label} ${index+1}`).point);
+  const input=item.querySelector(`.calibration-points-input[data-point-role="${role}"]`);
+  const rows=nonEmptyCoordinateRows(input);
+  if (!rows.length) throw new Error(`${label} 至少需要一个参考点。`);
+  return rows.map((row,index)=>parseCoordinateTriplet(row.text,`${label}${index+1}（原第 ${row.lineIndex+1} 行）`).point);
 }
 
 function evaluateLayerCalibrationItem(item,geometry,config,rangeData,limit) {
@@ -1382,8 +1467,8 @@ function calculateDisplacement() {
         reference=sub(C,A);
         sourceName="A→C";
       } else if (source==="points") {
-        const P=parseCoordinateTriplet($("moveDirectionPoint1").value,"方向起点 P").point;
-        const Q=parseCoordinateTriplet($("moveDirectionPoint2").value,"方向终点 Q").point;
+        const P=readFixedBatchPoint("moveDirectionPointBatch",0,"方向起点 P");
+        const Q=readFixedBatchPoint("moveDirectionPointBatch",1,"方向终点 Q");
         reference=sub(Q,P);
         if (norm(reference)<EPS) throw new Error("方向起点 P 与终点 Q 不能是同一个坐标。");
         sourceName=`两点 P=${vectorText(P,precision)} → Q=${vectorText(Q,precision)} 的方向`;
@@ -1468,7 +1553,7 @@ function applyLayerCalibrationRecommendation(item) {
     const limit=getLayerLimit(geometry);
     const rangeData=buildLayerRanges(config);
     const calibration=evaluateLayerCalibrationItem(item,geometry,config,rangeData,limit);
-    if (!calibration.recommendation) throw new Error("当前两点没有可应用的目标层厚度，请先根据校准提示调整点或其他边界参数。");
+    if (!calibration.recommendation) throw new Error("当前参考点没有可应用的目标层厚度，请先根据校准提示调整点或其他边界参数。");
     const inputId=`${calibration.kind}Thickness${calibration.index}`;
     const input=$(inputId);
     if (!input) throw new Error("无法找到目标层对应的厚度输入框。");
@@ -1501,14 +1586,8 @@ document.querySelectorAll("[data-limit-point-source]").forEach(button => {
   });
 });
 $("useMidplanePosition").addEventListener("change", () => { updateMidplaneControls(); syncLayerCalculations(); });
-["midplaneAtom1","midplaneAtom2"].forEach(id => {
-  const input=$(id);
-  input.addEventListener("input",() => {
-    updateCalibrationCoordinateRecognition(input);
-    syncLayerCalculations();
-  });
-  input.addEventListener("change",syncLayerCalculations);
-});
+$("midplanePointBatch").addEventListener("input",syncLayerCalculations);
+$("midplanePointBatch").addEventListener("change",syncLayerCalculations);
 $("useLayerCalibration").addEventListener("change", () => { updateLayerCalibrationControls(); syncLayerCalculations(); });
 $("addLayerCalibration").addEventListener("click",()=>createLayerCalibrationItem());
 ["upperPrefix","lowerPrefix"].forEach(id => {
@@ -1524,14 +1603,8 @@ $("moveDirectionSource").addEventListener("change", () => {
   updateDisplacementControls();
   calculateDisplacement();
 });
-["moveDirectionPoint1","moveDirectionPoint2"].forEach(id=>{
-  const input=$(id);
-  input.addEventListener("input",()=>{
-    updateCalibrationCoordinateRecognition(input);
-    calculateDisplacement();
-  });
-  input.addEventListener("change",calculateDisplacement);
-});
+$("moveDirectionPointBatch").addEventListener("input",calculateDisplacement);
+$("moveDirectionPointBatch").addEventListener("change",calculateDisplacement);
 $("calcLayers").addEventListener("click", syncLayerCalculations);
 $("calcDisplacement").addEventListener("click", calculateDisplacement);
 $("layerExample").addEventListener("click", () => {
@@ -1540,10 +1613,8 @@ $("layerExample").addEventListener("click", () => {
   assignPoint("lc",[0,10,0]);
   $("layerNormalDirection").value="forward";
   $("useMidplanePosition").checked=false;
-  ["midplaneAtom1","midplaneAtom2"].forEach(id=>{
-    $(id).value="";
-    updateCalibrationCoordinateRecognition($(id));
-  });
+  $("midplanePointBatch").value="";
+  updateFixedCoordinateBatch($("midplanePointBatch"));
   updateMidplaneControls();
   $("layerCount").value=2;
   $("layerTolerance").value=0;
@@ -1563,23 +1634,26 @@ $("layerExample").addEventListener("click", () => {
   updateLayerCalibrationControls();
   $("displacementInputMode").value="plane";
   $("moveDirectionSource").value="ab";
-  ["moveDirectionPoint1","moveDirectionPoint2"].forEach(id=>{
-    $(id).value="";
-    updateCalibrationCoordinateRecognition($(id));
-  });
+  $("moveDirectionPointBatch").value="";
+  updateFixedCoordinateBatch($("moveDirectionPointBatch"));
   $("alongMoveDistance").value=0.5536; $("paperMoveDistance").value=0;
   $("directMoveX").value=0.5536; $("directMoveY").value=0; $("directMoveZ").value=0;
   updateDisplacementControls();
   syncLayerCalculations();
 });
 
-function parsePastedPoints(areaId) {
-  return $(areaId).value.split(/\r?\n/).map(line => {
-    const matches=line.match(/[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?/g);
-    return matches && matches.length>=3 ? matches.slice(0,3).map(Number) : null;
-  }).filter(Boolean);
-}
 function assignPoint(prefix,p) {
+  const batchBinding=FIXED_POINT_BINDINGS[prefix];
+  if (batchBinding) {
+    const input=$(batchBinding.inputId);
+    const lines=fixedBatchLines(input);
+    const minimumLength=FIXED_BATCH_DEFINITIONS[batchBinding.inputId].length;
+    while (lines.length<minimumLength) lines.push("");
+    lines[batchBinding.index]=p.join(" ");
+    input.value=lines.join("\n");
+    updateFixedCoordinateBatch(input);
+    return;
+  }
   const tripletInput=$(prefix+"xyz");
   if (tripletInput) {
     tripletInput.value=p.join(" ");
@@ -1588,30 +1662,6 @@ function assignPoint(prefix,p) {
   }
   ["x","y","z"].forEach((axis,i)=>$(prefix+axis).value=p[i]);
 }
-$("pastePlane").addEventListener("click", () => {
-  clearMessage("planePasteMessage");
-  const points=parsePastedPoints("planePasteArea");
-  if (points.length<3) return showMessage("planePasteMessage","至少需要三行有效坐标，每行包含 X、Y、Z。");
-  assignPoint("a",points[0]); assignPoint("b",points[1]); assignPoint("c",points[2]);
-  $("pastePlane").closest("details").open=false;
-  $("calcPlane").click();
-});
-$("pasteLayers").addEventListener("click", () => {
-  clearMessage("layerPasteMessage");
-  const points=parsePastedPoints("layerPasteArea");
-  if (points.length<3) return showMessage("layerPasteMessage","至少需要三行有效坐标，每行包含 X、Y、Z。");
-  assignPoint("la",points[0]); assignPoint("lb",points[1]); assignPoint("lc",points[2]);
-  $("pasteLayers").closest("details").open=false;
-  syncLayerCalculations();
-});
-$("pasteHexa").addEventListener("click", () => {
-  clearMessage("hexaPasteMessage");
-  const points=parsePastedPoints("hexaPasteArea");
-  if (points.length<4) return showMessage("hexaPasteMessage","至少需要四行有效坐标，每行包含 X、Y、Z。");
-  HEXA_BASE_PREFIXES.forEach((prefix,index)=>assignPoint(prefix,points[index]));
-  $("pasteHexa").closest("details").open=false;
-  calculateHexahedron();
-});
 
 document.querySelectorAll("[data-copy]").forEach(button => {
   button.addEventListener("click", async () => {
@@ -1631,14 +1681,14 @@ document.querySelectorAll("[data-copy]").forEach(button => {
 // Keep results synchronized with all editable inputs. This prevents stale
 // commands from being copied after coordinates or the Region ID change.
 [
-  "planeMode","planeId","axyz","bxyz","cxyz",
+  "planeMode","planeId","planePointBatch",
   "useInside","qxyz","planeSide","planePrecision","planeUnits","atomskInput","atomskOutput","atomskTolerance"
 ].forEach(id => {
   $(id).addEventListener("input", () => $("calcPlane").click());
   $(id).addEventListener("change", () => $("calcPlane").click());
 });
 [
-  "hexaId","haxyz","hbxyz","hcxyz","hdxyz","hexaThickness","hexaExtrudeDirection",
+  "hexaId","hexaPointBatch","hexaThickness","hexaExtrudeDirection",
   "hexaPrecision","hexaUnits","hexaTolerance","hexaAtomskTolerance",
   "hexaAtomskInput","hexaAtomskOutput"
 ].forEach(id => {
@@ -1646,7 +1696,7 @@ document.querySelectorAll("[data-copy]").forEach(button => {
   $(id).addEventListener("change",calculateHexahedron);
 });
 [
-  "laxyz","lbxyz","lcxyz",
+  "layerPointBatch",
   "layerNormalDirection","layerTolerance","upperPrefix","lowerPrefix",
   "upperUnionGroup","lowerUnionGroup","moveGroup","layerPrecision",
   "layerLimitSide","layerLimitId","lvxyz",
@@ -1663,6 +1713,11 @@ document.querySelectorAll("[data-copy]").forEach(button => {
 document.querySelectorAll(".coordinate-triplet-input").forEach(input => {
   updateCalibrationCoordinateRecognition(input);
   input.addEventListener("input",()=>updateCalibrationCoordinateRecognition(input));
+});
+document.querySelectorAll(".fixed-coordinate-batch").forEach(input => {
+  updateFixedCoordinateBatch(input);
+  input.addEventListener("input",()=>updateFixedCoordinateBatch(input));
+  input.addEventListener("change",()=>updateFixedCoordinateBatch(input));
 });
 
 $("calcPlane").click();
