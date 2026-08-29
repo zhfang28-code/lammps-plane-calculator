@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>LAMMPS 平面、倾斜原子层与六面体计算器</title>
-  <link rel="stylesheet" href="assets/css/styles.css?v=20260829-5">
+  <link rel="stylesheet" href="assets/css/styles.css?v=20260829-6">
 </head>
 <body>
   <main class="shell">
@@ -408,14 +408,11 @@
               <input id="useLayerCalibration" type="checkbox"><span>参考原子校准</span>
             </label>
           </h3>
-          <p class="help">可为 upper_1、lower_1 或其他目标层分别添加一组参考原子：每组可添加任意数量的层内点和层外点。程序会检查全部点到中心面的法向距离，并为每一组独立给出厚度建议。</p>
+          <p class="help">程序会按照当前层数自动生成 upper_1、lower_1、upper_2、lower_2……。每层分别填写必须选中的层内原子与必须排除的层外原子；upper 位于中心面的 +n 侧，lower 位于 −n 侧。</p>
           <div id="layerCalibrationFields" class="limit-box hidden">
             <div id="layerCalibrationItems" class="calibration-list"></div>
             <div id="layerCalibrationGlobalMessage" class="message warn" aria-live="polite"></div>
-            <div class="actions">
-              <button class="secondary" id="addLayerCalibration" type="button">＋ 添加另一层校准</button>
-            </div>
-            <p class="help">每个目标层只能添加一次；每组的层内点、层外点数量不限，每个非空行自动识别为一个 XYZ 坐标。支持空格、逗号、括号以及 <code>x=… y=… z=…</code>。优化只修改当前校准组对应排的厚度；由于各排从中心向外累计，目标层外侧各排的绝对位置会随新边界一起平移。</p>
+            <p class="help">目标层会随“上下各生成几排”自动增减，无需手动选择。每层的层内点、层外点数量不限，每个非空行识别为一个 XYZ 坐标。优化只修改该目标排的厚度；目标层外侧各排的绝对位置会随累计边界移动。</p>
           </div>
           </div>
 
@@ -663,6 +660,6 @@
     <footer>坐标必须处于同一个周期映像中；跨周期边界时，请先使用展开坐标 xu、yu、zu。</footer>
   </main>
 
-  <script src="assets/js/app.js?v=20260829-5"></script>
+  <script src="assets/js/app.js?v=20260829-6"></script>
 </body>
 </html>
