@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>LAMMPS 平面、倾斜原子层与六面体计算器</title>
-  <link rel="stylesheet" href="assets/css/styles.css?v=20260829-2">
+  <link rel="stylesheet" href="assets/css/styles.css?v=20260829-3">
 </head>
 <body>
   <main class="shell">
@@ -96,12 +96,13 @@
           </div>
 
           <div id="planeSideSettings" class="form-section side-nav-target">
-            <h3 class="section-heading"><span class="step-badge">2</span>选择要处理的平面一侧</h3>
+            <h3 class="section-heading">
+              <span class="step-badge">2</span><span class="section-title">选择要处理的平面一侧</span>
+              <label class="section-enable" for="useInside" title="启用后用内部点 Q 自动校正法向">
+                <input id="useInside" type="checkbox"><span>内部点 Q</span>
+              </label>
+            </h3>
 
-          <label class="checkline">
-            <input id="useInside" type="checkbox">
-            我有一个模型内部点 Q，用它自动确定 +n 方向
-          </label>
           <div id="insideFields" class="coordinate-stack hidden">
             <div class="coordinate-triplet-entry calibration-coordinate-entry">
               <label class="coordinate-triplet-label" for="qxyz"><span class="point-name">Q</span><span>模型内部点的 XYZ</span></label>
@@ -412,12 +413,13 @@
           </div>
 
           <div id="layerMidplaneSettings" class="form-section side-nav-target">
-            <h3 class="section-heading"><span class="step-badge">2</span>用两个原子的中点定位中心面（可选）</h3>
+            <h3 class="section-heading">
+              <span class="step-badge">2</span><span class="section-title">用两个原子的中点定位中心面（可选）</span>
+              <label class="section-enable" for="useMidplanePosition" title="启用双原子中点定位中心面">
+                <input id="useMidplanePosition" type="checkbox"><span>双原子中点</span>
+              </label>
+            </h3>
             <p class="help">选择界面两侧的两个相邻原子 P1、P2。程序取三维中点 M，并保持 A、B、C 给出的倾斜方向不变，使新的中心面平行移动后通过 M。</p>
-            <label class="checkline">
-              <input id="useMidplanePosition" type="checkbox">
-              启用双原子中点定位中心面
-            </label>
             <div id="midplaneFields" class="limit-box hidden">
               <div class="coordinate-stack paired-coordinate-stack" aria-label="中心面两侧原子坐标">
                 <div class="coordinate-triplet-entry calibration-coordinate-entry midplane-coordinate-entry">
@@ -470,12 +472,13 @@
           </div>
 
           <div id="layerCalibrationSettings" class="form-section side-nav-target">
-          <h3 class="section-heading"><span class="step-badge">4</span>用已知原子校准目标层（可选）</h3>
+          <h3 class="section-heading">
+            <span class="step-badge">4</span><span class="section-title">用已知原子校准目标层（可选）</span>
+            <label class="section-enable" for="useLayerCalibration" title="启用参考原子校准">
+              <input id="useLayerCalibration" type="checkbox"><span>参考原子校准</span>
+            </label>
+          </h3>
           <p class="help">可为 upper_1、lower_1 或其他目标层分别添加一组参考原子：每组可添加任意数量的层内点和层外点。程序会检查全部点到中心面的法向距离，并为每一组独立给出厚度建议。</p>
-          <label class="checkline">
-            <input id="useLayerCalibration" type="checkbox">
-            启用参考原子校准
-          </label>
           <div id="layerCalibrationFields" class="limit-box hidden">
             <div id="layerCalibrationItems" class="calibration-list"></div>
             <div id="layerCalibrationGlobalMessage" class="message warn" aria-live="polite"></div>
@@ -487,12 +490,13 @@
           </div>
 
           <div id="layerBoundarySettings" class="form-section side-nav-target">
-          <h3 class="section-heading"><span class="step-badge">5</span>限制原子层的横向范围（可选）</h3>
+          <h3 class="section-heading">
+            <span class="step-badge">5</span><span class="section-title">限制原子层的横向范围（可选）</span>
+            <label class="section-enable" for="useLayerLimit" title="启用横向侧边界">
+              <input id="useLayerLimit" type="checkbox" checked><span>横向侧边界</span>
+            </label>
+          </h3>
           <p class="help">启用后会增加一条橙色侧边界，只保留这条边界某一侧的原子层。</p>
-          <label class="checkline">
-            <input id="useLayerLimit" type="checkbox" checked>
-            启用侧边界，只保留边界一侧
-          </label>
           <div id="layerLimitFields" class="limit-box">
             <div class="row">
               <div class="field">
@@ -732,6 +736,6 @@
     <footer>坐标必须处于同一个周期映像中；跨周期边界时，请先使用展开坐标 xu、yu、zu。</footer>
   </main>
 
-  <script src="assets/js/app.js?v=20260829-2"></script>
+  <script src="assets/js/app.js?v=20260829-3"></script>
 </body>
 </html>
