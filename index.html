@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>LAMMPS 平面、倾斜原子层与六面体计算器</title>
-  <link rel="stylesheet" href="assets/css/styles.css?v=20260829-3">
+  <link rel="stylesheet" href="assets/css/styles.css?v=20260829-4">
 </head>
 <body>
   <main class="shell">
@@ -538,7 +538,14 @@
                   <div class="coordinate-triplet-control"><input id="lsxyz" class="coordinate-triplet-input calibration-coordinate-input" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" value="0 0 0" placeholder="粘贴 S 的 X Y Z，例如：14.0173 285.724 394.4208"><p class="coordinate-recognition" data-state="empty">等待粘贴三个 XYZ 坐标</p></div>
                 </div>
               </div>
-              <button class="ghost" id="limitPointFromA" type="button">直接使用 A 点的位置</button>
+              <div class="point-source-picker" role="group" aria-label="快速选择侧边界点 S">
+                <span class="point-source-picker-label">快速使用基础点作为 S</span>
+                <div class="point-source-buttons">
+                  <button class="ghost point-source-button" type="button" data-limit-point-source="A">使用 A 点</button>
+                  <button class="ghost point-source-button" type="button" data-limit-point-source="B">使用 B 点</button>
+                  <button class="ghost point-source-button" type="button" data-limit-point-source="C">使用 C 点</button>
+                </div>
+              </div>
               <p class="help">S 的 X、Y 同时用于计算并显示每一层对应的 Z 坐标。</p>
             </div>
             <div id="layerLimitThresholdField" class="field hidden">
@@ -736,6 +743,6 @@
     <footer>坐标必须处于同一个周期映像中；跨周期边界时，请先使用展开坐标 xu、yu、zu。</footer>
   </main>
 
-  <script src="assets/js/app.js?v=20260829-3"></script>
+  <script src="assets/js/app.js?v=20260829-4"></script>
 </body>
 </html>

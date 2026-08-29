@@ -1485,15 +1485,20 @@ $("layerCount").addEventListener("change", () => { renderLayerRows(); syncLayerC
 $("useLayerLimit").addEventListener("change", () => { updateLayerLimitControls(); syncLayerCalculations(); });
 $("layerLimitDirection").addEventListener("change", () => { updateLayerLimitControls(); syncLayerCalculations(); });
 $("layerLimitMode").addEventListener("change", () => { updateLayerLimitControls(); syncLayerCalculations(); });
-$("limitPointFromA").addEventListener("click", () => {
-  clearMessage("layerMessage");
-  try {
-    const {A}=getLayerGeometry();
-    assignPoint("ls",A);
-    syncLayerCalculations();
-  } catch(error) {
-    showMessage("layerMessage",error.message);
-  }
+document.querySelectorAll("[data-limit-point-source]").forEach(button => {
+  button.addEventListener("click", () => {
+    clearMessage("layerMessage");
+    try {
+      const source=button.dataset.limitPointSource;
+      if (!["A","B","C"].includes(source)) throw new Error("请选择有效的基础点 A、B 或 C。");
+      const geometry=getLayerGeometry();
+      const selectedPoint=geometry[source].map(value=>Number(clean(value,geometry.precision)));
+      assignPoint("ls",selectedPoint);
+      syncLayerCalculations();
+    } catch(error) {
+      showMessage("layerMessage",error.message);
+    }
+  });
 });
 $("useMidplanePosition").addEventListener("change", () => { updateMidplaneControls(); syncLayerCalculations(); });
 ["midplaneAtom1","midplaneAtom2"].forEach(id => {
