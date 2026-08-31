@@ -759,6 +759,63 @@ details.command-panel.explanation-panel > summary { color: var(--text); font-siz
   white-space: pre;
   scrollbar-gutter: stable;
 }
+.strain-component-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0 10px;
+}
+.strain-component-grid .field { min-width: 0; }
+.strain-displacement-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.compact-actions { margin-top: 8px; }
+.strain-matrix-comparison {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 12px 0 2px;
+}
+.strain-matrix-card {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #d7e8ed;
+  border-radius: 9px;
+  background: #f2f8fa;
+}
+.result-card .strain-matrix-card h3 {
+  margin: 0 0 8px;
+  padding: 0;
+  border: 0;
+  color: #3d5663;
+  font-size: 11px;
+  line-height: 1.4;
+}
+.strain-matrix-grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 3px 6px;
+  padding: 5px 10px;
+  font: 10.5px/1.35 Consolas, "Cascadia Mono", monospace;
+  text-align: center;
+}
+.strain-matrix-grid::before,
+.strain-matrix-grid::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  border-top: 1px solid #6d8792;
+  border-bottom: 1px solid #6d8792;
+  content: "";
+}
+.strain-matrix-grid::before { left: 0; border-left: 1px solid #6d8792; }
+.strain-matrix-grid::after { right: 0; border-right: 1px solid #6d8792; }
+.strain-matrix-grid > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+#strainPotentialCommands { min-height: 84px; }
+#strainCode.command-scroll,
+#strainInCode.command-scroll { height: 390px; max-height: 390px; }
 .limit-box {
   margin: 10px 0 0;
   padding: 12px;

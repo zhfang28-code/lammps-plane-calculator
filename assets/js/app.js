@@ -32,6 +32,11 @@ const FIXED_BATCH_DEFINITIONS={
   moveDirectionPointBatch:[
     {prefix:"moveP",label:"P",description:"方向起点"},
     {prefix:"moveQ",label:"Q",description:"方向终点"}
+  ],
+  strainPointBatch:[
+    {prefix:"strainA",label:"A",description:"局部坐标原点 A"},
+    {prefix:"strainB",label:"B",description:"局部面内方向点 B"},
+    {prefix:"strainC",label:"C",description:"局部面法向参考点 C"}
   ]
 };
 const FIXED_POINT_BINDINGS=Object.fromEntries(
@@ -1548,6 +1553,381 @@ displace_atoms ${lowerGroup} move ${lowerMove.map(v=>clean(v,precision)).join(" 
   }
 }
 
+const STRAIN_COMPONENT_KEYS=["n1","n2","n3","s12","s13","s23"];
+const STRAIN_COMPONENT_INPUTS={
+  n1:"strainNormal1",n2:"strainNormal2",n3:"strainNormal3",
+  s12:"strainShear12",s13:"strainShear13",s23:"strainShear23"
+};
+const STRAIN_COMPONENT_LABELS={
+  global:{n1:"εxx",n2:"εyy",n3:"εzz",s12:"γxy",s13:"γxz",s23:"γyz"},
+  plane:{n1:"εtt",n2:"εqq",n3:"εnn",s12:"γtq",s13:"γtn",s23:"γqn"}
+};
+const STRAIN_GLOBAL_FIX_COMPONENTS=[
+  {key:"n1",parameter:"x",variable:"eps_x",rate:"erate_x",normal:true},
+  {key:"n2",parameter:"y",variable:"eps_y",rate:"erate_y",normal:true},
+  {key:"n3",parameter:"z",variable:"eps_z",rate:"erate_z",normal:true},
+  {key:"s12",parameter:"xy",variable:"gamma_xy",rate:"erate_xy",normal:false},
+  {key:"s13",parameter:"xz",variable:"gamma_xz",rate:"erate_xz",normal:false},
+  {key:"s23",parameter:"yz",variable:"gamma_yz",rate:"erate_yz",normal:false}
+];
+const STRAIN_UNIT_INFO={
+  metal:{time:"ps",nativePressure:"bar",gpaFactor:1e-4},
+  real:{time:"fs",nativePressure:"atm",gpaFactor:0.000101325},
+  si:{time:"s",nativePressure:"Pa",gpaFactor:1e-9}
+};
+
+function numericInput(id,label) {
+  const value=Number($(id).value);
+  if (!Number.isFinite(value)) throw new Error(`请填写有效的${label}。`);
+  return value;
+}
+
+function strainTensorFromComponents(components) {
+  return [
+    [components.n1,components.s12/2,components.s13/2],
+    [components.s12/2,components.n2,components.s23/2],
+    [components.s13/2,components.s23/2,components.n3]
+  ];
+}
+
+function strainComponentsFromTensor(tensor) {
+  return {
+    n1:tensor[0][0],n2:tensor[1][1],n3:tensor[2][2],
+    s12:tensor[0][1]+tensor[1][0],
+    s13:tensor[0][2]+tensor[2][0],
+    s23:tensor[1][2]+tensor[2][1]
+  };
+}
+
+function transformStrainTensorToGlobal(localTensor,basis) {
+  return Array.from({length:3},(_,i)=>Array.from({length:3},(_,j)=>{
+    let value=0;
+    for (let a=0;a<3;a++) for (let b=0;b<3;b++) {
+      value+=basis[a][i]*localTensor[a][b]*basis[b][j];
+    }
+    return value;
+  }));
+}
+
+function renderStrainMatrix(id,matrix,precision=8) {
+  const target=$(id);
+  target.innerHTML="";
+  matrix.flat().forEach(value=>{
+    const cell=document.createElement("span");
+    cell.textContent=Number.isFinite(value) ? clean(value,precision) : "—";
+    target.appendChild(cell);
+  });
+}
+
+function getStrainBasis() {
+  const mode=$("strainCoordinateMode").value;
+  if (mode==="global") {
+    return {mode,basis:[[1,0,0],[0,1,0],[0,0,1]],A:null,t:[1,0,0],q:[0,1,0],n:[0,0,1],yzAligned:true};
+  }
+  const A=readPoint("strainA"),B=readPoint("strainB"),C=readPoint("strainC");
+  if (![A,B,C].every(validPoint)) throw new Error("请为局部坐标系粘贴完整的 A、B、C 三行坐标。");
+  const AB=sub(B,A),AC=sub(C,A);
+  if (norm(AB)<EPS) throw new Error("局部坐标的 A、B 不能重合。");
+  let n=cross(AB,AC);
+  if (norm(n)<EPS) throw new Error("局部坐标的 A、B、C 共线，无法确定面法向。");
+  const t=normalized(AB);
+  n=normalized(n);
+  if ($("strainNormalDirection").value==="reverse") n=scale(n,-1);
+  const q=normalized(cross(n,t));
+  const yzAligned=Math.abs(Math.abs(dot(t,[0,1,0]))-1)<1e-8 && Math.abs(Math.abs(dot(n,[0,0,1]))-1)<1e-8;
+  return {mode,basis:[t,q,n],A,B,C,t,q,n,yzAligned};
+}
+
+function getStrainTargetComponents(mode) {
+  if ($("strainMagnitudeMode").value==="matrix") {
+    return Object.fromEntries(STRAIN_COMPONENT_KEYS.map(key=>[
+      key,numericInput(STRAIN_COMPONENT_INPUTS[key],STRAIN_COMPONENT_LABELS[mode][key])
+    ]));
+  }
+  const length=numericInput("strainNormalLength","初始法向长度 L0");
+  const tangential=numericInput("strainTangentialDisplacement","切向相对位移 Δt");
+  const normalChange=numericInput("strainNormalChange","法向长度变化 ΔL");
+  if (length<=0) throw new Error("初始法向长度 L0 必须大于 0。");
+  const components={n1:0,n2:0,n3:normalChange/length,s12:0,s13:0,s23:0};
+  if (mode==="global") components.s23=tangential/length;
+  else components.s13=tangential/length;
+  return components;
+}
+
+function updateStrainControls() {
+  const mode=$("strainCoordinateMode").value;
+  const matrixMode=$("strainMagnitudeMode").value==="matrix";
+  const labels=STRAIN_COMPONENT_LABELS[mode];
+  $("strainPlaneBasisFields").classList.toggle("hidden",mode!=="plane");
+  $("strainMatrixFields").classList.toggle("hidden",!matrixMode);
+  $("strainDisplacementFields").classList.toggle("hidden",matrixMode);
+  STRAIN_COMPONENT_KEYS.forEach(key=>{
+    const inputId=STRAIN_COMPONENT_INPUTS[key];
+    $(`${inputId}Label`).textContent=labels[key];
+    const option=$("strainReferenceComponent").querySelector(`option[value="${key}"]`);
+    if (option) option.textContent=labels[key];
+  });
+  $("strainComponentHelp").textContent=mode==="global"
+    ? "按 LAMMPS 全局 X/Y/Z 填写；剪切分量使用工程剪切应变 γ，张量非对角元显示为 γ/2。"
+    : "局部 t=A→B、n 为面法向、q=n×t；剪切分量使用工程剪切应变 γ，张量非对角元显示为 γ/2。";
+  $("strainDisplacementHelp").textContent=mode==="global"
+    ? "全局 YZ 快捷换算：γyz=ΔY/Lz0，εzz=ΔLz/Lz0。"
+    : "倾斜面局部换算：γtn=Δt/Ln0，εnn=ΔLn/Ln0；随后投影到全局 XYZ。";
+  $("strainInputMatrixHeading").textContent=mode==="global" ? "输入的全局工程应变张量" : "输入的局部 t / q / n 应变张量";
+  const rateMode=$("strainScheduleMode").value==="rate";
+  $("strainReferenceComponentField").classList.toggle("hidden",!rateMode);
+  $("strainReferenceRateField").classList.toggle("hidden",!rateMode);
+  $("strainLoadTimeField").classList.toggle("hidden",rateMode);
+  const volumeMode=$("strainVolumeMode").value;
+  $("strainEffectiveZField").classList.toggle("hidden",!["effectiveZ","effectiveZInitial"].includes(volumeMode));
+  $("strainManualVolumeField").classList.toggle("hidden",volumeMode!=="manual");
+}
+
+function strainRatioText(components,labels) {
+  const maximum=Math.max(...STRAIN_COMPONENT_KEYS.map(key=>Math.abs(components[key])));
+  if (maximum<EPS) return "全部为 0";
+  return STRAIN_COMPONENT_KEYS.map(key=>`${labels[key]}=${clean(components[key]/maximum,6)}`).join("；");
+}
+
+function lammpsSubstitution(name) {
+  return "${"+name+"}";
+}
+
+function strainVolumeDefinition() {
+  const mode=$("strainVolumeMode").value;
+  if (mode==="box") return {lines:["variable CorVol equal vol"],description:"当前整个模拟盒体积 vol"};
+  if (mode==="boxInitial") return {
+    lines:["variable strain_vol0 equal $(vol)","variable CorVol equal v_strain_vol0"],
+    description:"加载开始时的整个盒体积 vol0"
+  };
+  if (["effectiveZ","effectiveZInitial"].includes(mode)) {
+    const excluded=numericInput("strainExcludedZ","Z 方向排除厚度");
+    if (excluded<0) throw new Error("Z 方向排除厚度不能小于 0。");
+    if (mode==="effectiveZInitial") return {
+      lines:[
+        `variable excluded_z equal ${clean(excluded,12)}`,
+        "variable strain_lx0 equal $(lx)",
+        "variable strain_ly0 equal $(ly)",
+        "variable strain_lz0 equal $(lz)",
+        "variable CorVol equal v_strain_lx0*v_strain_ly0*(v_strain_lz0-v_excluded_z)"
+      ],
+      description:`初始 lx0×ly0×(lz0−${clean(excluded,8)})`
+    };
+    return {
+      lines:[`variable excluded_z equal ${clean(excluded,12)}`,"variable CorVol equal lx*ly*(lz-v_excluded_z)"],
+      description:`lx×ly×(lz−${clean(excluded,8)})`
+    };
+  }
+  const expression=$("strainManualVolume").value.trim();
+  if (!expression || /[\r\n]/.test(expression)) throw new Error("自定义体积必须是一行有效的 LAMMPS equal 表达式。");
+  return {lines:[`variable CorVol equal ${expression}`],description:`自定义：${expression}`};
+}
+
+function tensorProjectionExpression(left,right,prefix) {
+  const names=["xx","yy","zz","xy","xz","yz"];
+  const coefficients=[
+    left[0]*right[0],left[1]*right[1],left[2]*right[2],
+    left[0]*right[1]+left[1]*right[0],
+    left[0]*right[2]+left[2]*right[0],
+    left[1]*right[2]+left[2]*right[1]
+  ];
+  const terms=coefficients.map((coefficient,index)=>({coefficient,name:names[index]})).filter(term=>Math.abs(term.coefficient)>1e-12);
+  if (!terms.length) return "0.0";
+  return terms.map((term,index)=>{
+    const absolute=clean(Math.abs(term.coefficient),12);
+    const body=`${absolute}*v_${prefix}_${term.name}_GPa`;
+    if (index===0) return term.coefficient<0 ? `-${body}` : body;
+    return term.coefficient<0 ? ` - ${body}` : ` + ${body}`;
+  }).join("");
+}
+
+function calculateStrainMatrix() {
+  clearMessage("strainMessage");
+  try {
+    updateStrainControls();
+    const precision=10;
+    const basisData=getStrainBasis();
+    const mode=basisData.mode;
+    const labels=STRAIN_COMPONENT_LABELS[mode];
+    const inputComponents=getStrainTargetComponents(mode);
+    const inputTensor=strainTensorFromComponents(inputComponents);
+    const globalTensor=mode==="global" ? inputTensor : transformStrainTensorToGlobal(inputTensor,basisData.basis);
+    const globalComponents=strainComponentsFromTensor(globalTensor);
+    const maximumTarget=Math.max(...STRAIN_COMPONENT_KEYS.map(key=>Math.abs(globalComponents[key])));
+    if (maximumTarget<EPS) throw new Error("六个目标应变分量不能全部为 0。");
+    ["n1","n2","n3"].forEach(key=>{
+      if (globalComponents[key]<=-1) throw new Error(`全局法向分量 ${STRAIN_COMPONENT_LABELS.global[key]} 必须大于 −1，否则盒长将变为 0 或负值。`);
+    });
+
+    let referenceKey=$("strainReferenceComponent").value;
+    if (Math.abs(inputComponents[referenceKey])<EPS) {
+      referenceKey=STRAIN_COMPONENT_KEYS.reduce((best,key)=>Math.abs(inputComponents[key])>Math.abs(inputComponents[best]) ? key : best,STRAIN_COMPONENT_KEYS[0]);
+      $("strainReferenceComponent").value=referenceKey;
+    }
+    const timestep=numericInput("strainTimestep","时间步长 dt");
+    if (timestep<=0) throw new Error("时间步长 dt 必须大于 0。");
+    const deformEvery=numericInput("strainDeformEvery","盒子更新间隔 N");
+    if (!Number.isInteger(deformEvery) || deformEvery<1) throw new Error("盒子更新间隔 N 必须是大于或等于 1 的整数。");
+    let requestedTime;
+    if ($("strainScheduleMode").value==="rate") {
+      const rateMagnitude=numericInput("strainReferenceRate","参考应变率绝对值");
+      if (rateMagnitude<=0) throw new Error("参考应变率绝对值必须大于 0。");
+      requestedTime=Math.abs(inputComponents[referenceKey])/rateMagnitude;
+    } else {
+      requestedTime=numericInput("strainLoadTime","总加载时间");
+      if (requestedTime<=0) throw new Error("总加载时间必须大于 0。");
+    }
+    const loadSteps=Math.max(1,Math.ceil(requestedTime/timestep-1e-10));
+    const actualTime=loadSteps*timestep;
+    const globalRates=Object.fromEntries(STRAIN_COMPONENT_KEYS.map(key=>[key,globalComponents[key]/actualTime]));
+    const activeFixComponents=STRAIN_GLOBAL_FIX_COMPONENTS.filter(item=>Math.abs(globalComponents[item.key])>1e-12);
+    const usesTilt=activeFixComponents.some(item=>!item.normal);
+    const shearStyle=$("strainShearStyle").value;
+    const remapMode=$("strainRemapMode").value;
+    const initialBox=$("strainInitialBox").value;
+    const group=$("strainGroup").value.trim();
+    if (!validId(group)) throw new Error("应力统计原子组名称只能包含字母、数字和下划线，且不能以数字开头。");
+    const units=$("strainUnits").value;
+    const unitInfo=STRAIN_UNIT_INFO[units];
+    const stressMode=$("strainStressContribution").value;
+    const stressSign=$("strainStressSign").value;
+    const volume=strainVolumeDefinition();
+    const thermoEvery=numericInput("strainThermoEvery","thermo 输出间隔");
+    if (!Number.isInteger(thermoEvery) || thermoEvery<1) throw new Error("thermo 输出间隔必须是大于或等于 1 的整数。");
+    const boundary=$("strainBoundary").value.trim();
+    const boundaryParts=boundary.split(/\s+/).filter(Boolean);
+    if (boundaryParts.length!==3 || boundaryParts.some(part=>!/^[pfsm]{1,2}$/.test(part))) {
+      throw new Error("boundary 请填写三个由 p、f、s、m 组成的方向，例如 p p p 或 p p fm。");
+    }
+
+    const onlyLocalTNShearAndNormal=STRAIN_COMPONENT_KEYS.every(key=>["n3","s13"].includes(key) || Math.abs(inputComponents[key])<1e-12);
+    const exactPlaneYZ=mode==="plane" && basisData.yzAligned && onlyLocalTNShearAndNormal;
+    let fidelity;
+    const cautions=[];
+    if (mode==="global") fidelity="全局盒分量可直接由 fix deform 施加";
+    else if (exactPlaneYZ) fidelity="局部 t / n 已与全局 Y / Z 对齐，可精确转为 yz + z";
+    else {
+      fidelity="局部矩阵已转成全局小应变等效分量；有限应变时需先旋转模型";
+      cautions.push("当前倾斜面未与 LAMMPS 盒轴对齐。生成命令保证初始小应变率张量等效，但会附带受限三斜盒表示所对应的转动；较大有限应变时，应先把局部 t、n 旋转到受支持的盒轴后再加载。");
+    }
+    if (mode==="plane" && maximumTarget>0.05 && !exactPlaneYZ) cautions.push("目标分量超过 5%，不应把局部到全局的小应变投影当作严格的有限应变变换。");
+    if (usesTilt && Math.abs(globalComponents.n3)>EPS && shearStyle==="erate") cautions.push("同时改变垂直盒长时，erate 的剪切应变仍按初始垂直盒长定义；若要随当前盒长重标定，可在确认 LAMMPS 版本后选择 erate/rescale。");
+    if (shearStyle==="erate/rescale") cautions.push("erate/rescale 需要 LAMMPS 11Feb2026 或更新版本。");
+    if (stressMode==="deform" && remapMode!=="v") cautions.push("compute temp/deform 与 remap x/none 的流速假设不一致，LAMMPS 可能警告；NEMD 动能项通常应配合 remap v 与合适温控。");
+    const shrinkWrapped=boundaryParts.map(part=>/[sm]/.test(part));
+    const invalidShrink=activeFixComponents.some(item=>{
+      const dimensionIndex=item.normal ? {x:0,y:1,z:2}[item.parameter] : {xy:1,xz:2,yz:2}[item.parameter];
+      return shrinkWrapped[dimensionIndex];
+    });
+    if (invalidShrink) cautions.push("fix deform 所改变的盒长或倾斜分量所依赖的方向不能使用 shrink-wrap（s/m）边界；请修改 boundary 或加载分量。");
+
+    renderStrainMatrix("strainInputMatrixOut",inputTensor,8);
+    renderStrainMatrix("strainGlobalMatrixOut",globalTensor,8);
+    $("strainBasisOut").textContent=mode==="global"
+      ? "全局 X=(1,0,0)，Y=(0,1,0)，Z=(0,0,1)"
+      : `t=${vectorText(basisData.t,8)}；q=${vectorText(basisData.q,8)}；n=${vectorText(basisData.n,8)}`;
+    $("strainComponentsOut").textContent=STRAIN_COMPONENT_KEYS.map(key=>`${STRAIN_COMPONENT_LABELS.global[key]}=${clean(globalComponents[key],8)}`).join("；");
+    $("strainRatioOut").textContent=strainRatioText(inputComponents,labels);
+    $("strainScheduleOut").textContent=`T=${clean(actualTime,10)} ${unitInfo.time}；${loadSteps} 步；dt=${clean(timestep,12)} ${unitInfo.time}`;
+    $("strainFidelityOut").textContent=fidelity;
+    $("strainStressIndexOut").textContent=`stress/atom 顺序 xx, yy, zz, xy, xz, yz；[3]=zz，[6]=yz；另输出局部 tn / nn 投影；${unitInfo.nativePressure}→GPa`;
+
+    const targetLines=activeFixComponents.map(item=>`variable final_${item.parameter} equal ${clean(globalComponents[item.key],12)}`);
+    const rateLines=activeFixComponents.map(item=>`variable ${item.rate} equal ${clean(globalRates[item.key],12)}`);
+    const strainVariableLines=activeFixComponents.map(item=>`variable ${item.variable} equal v_${item.rate}*(step-v_load_start)*dt`);
+    const fixArguments=activeFixComponents.map(item=>{
+      const style=item.normal ? "erate" : shearStyle;
+      return `${item.parameter} ${style} ${lammpsSubstitution(item.rate)}`;
+    }).join(" ");
+    const triclinicLine=usesTilt && initialBox==="orthogonal" ? "change_box all triclinic\n" : "";
+    const stressComputeLines=stressMode==="virial"
+      ? [`compute strainStressAtom ${group} stress/atom NULL virial`]
+      : stressMode==="deform"
+        ? [`compute strainTemp ${group} temp/deform`,`compute strainStressAtom ${group} stress/atom strainTemp`]
+        : [`compute strainStressAtom ${group} stress/atom NULL`];
+    const stressFactor=clean(unitInfo.gpaFactor,12);
+    const stressPrefix=stressSign==="pressure" ? "p" : "sigma";
+    const stressSignPrefix=stressSign==="pressure" ? "-" : "";
+    const stressNames=["xx","yy","zz","xy","xz","yz"];
+    const stressVariableLines=stressNames.map((name,index)=>
+      `variable ${stressPrefix}_${name}_GPa equal ${stressSignPrefix}(c_strainStressSum[${index+1}]/(v_CorVol+1.0e-30))*${stressFactor}`
+    );
+    const projectionT=mode==="global" ? [0,1,0] : basisData.t;
+    const projectionN=mode==="global" ? [0,0,1] : basisData.n;
+    stressVariableLines.push(
+      `variable ${stressPrefix}_tn_GPa equal ${tensorProjectionExpression(projectionT,projectionN,stressPrefix)}`,
+      `variable ${stressPrefix}_nn_GPa equal ${tensorProjectionExpression(projectionN,projectionN,stressPrefix)}`
+    );
+    const thermoVariables=[...stressNames.map(name=>`v_${stressPrefix}_${name}_GPa`),`v_${stressPrefix}_tn_GPa`,`v_${stressPrefix}_nn_GPa`].join(" ");
+    const liveStrainVariables=activeFixComponents.map(item=>`v_${item.variable}`).join(" ");
+    const commandLines=[
+      `timestep ${clean(timestep,12)}`,
+      ...targetLines,
+      ...rateLines,
+      `variable load_steps equal ${loadSteps}`,
+      "variable load_start equal $(step)",
+      "",
+      ...(triclinicLine ? [triclinicLine.trimEnd()] : []),
+      `fix strainBox all deform ${deformEvery} ${fixArguments} remap ${remapMode} units box`,
+      "",
+      ...stressComputeLines,
+      "compute strainStressSum " + group + " reduce sum c_strainStressAtom[1] c_strainStressAtom[2] c_strainStressAtom[3] c_strainStressAtom[4] c_strainStressAtom[5] c_strainStressAtom[6]",
+      ...volume.lines,
+      ...stressVariableLines,
+      ...strainVariableLines,
+      "",
+      `thermo ${thermoEvery}`,
+      `thermo_style custom step temp ${liveStrainVariables} ${thermoVariables}`.replace(/\s+/g," ").trim(),
+      `run ${lammpsSubstitution("load_steps")}`,
+      "unfix strainBox"
+    ];
+    const commandText=commandLines.join("\n");
+    $("strainCode").textContent=commandText;
+
+    const dataFile=$("strainDataFile").value.trim();
+    if (!dataFile || /[\r\n]/.test(dataFile)) throw new Error("IN 骨架的数据文件名不能为空或包含换行。");
+    const atomStyle=$("strainAtomStyle").value;
+    const potential=$("strainPotentialCommands").value.trim();
+    const potentialBlock=potential || "# TODO: 在这里粘贴与你的材料一致的 mass、pair_style、pair_coeff 命令";
+    const groupRequirement=group==="all" ? "" : `\n# TODO: 在加载前定义原子组 ${group}；可直接粘贴第三板块生成的 group 命令`;
+    $("strainInCode").textContent=
+`units ${units}
+atom_style ${atomStyle}
+boundary ${boundary}
+read_data ${dataFile}
+
+${potentialBlock}${groupRequirement}
+
+# 根据体系补充最小化、积分器和温控命令后，再执行以下加载段
+${commandText}
+
+write_data strained.data`;
+
+    const sourceText=$("strainMagnitudeMode").value==="matrix"
+      ? "六个目标工程应变分量由用户直接给出。"
+      : mode==="global"
+        ? `由 Lz0、ΔY、ΔLz 换算：γyz=ΔY/Lz0=${clean(inputComponents.s23,8)}，εzz=ΔLz/Lz0=${clean(inputComponents.n3,8)}。`
+        : `由 Ln0、Δt、ΔLn 换算：γtn=Δt/Ln0=${clean(inputComponents.s13,8)}，εnn=ΔLn/Ln0=${clean(inputComponents.n3,8)}。`;
+    const rateText=activeFixComponents.map(item=>`${STRAIN_COMPONENT_LABELS.global[item.key]}率=${clean(globalRates[item.key],12)} /${unitInfo.time}`).join("；");
+    $("strainExplanation").textContent=
+`三个面上点只能给出方向：A→B 定义局部 t，A→B×A→C 定义局部 n；它们不能决定应变幅值。若要由变形前后原子坐标反算完整三维形变梯度，至少需要四个不共面的对应点。
+${sourceText}
+所有非零分量使用同一加载时间 T=${clean(actualTime,10)} ${unitInfo.time}，因此比例由目标应变自动保持：${rateText}。
+默认示例 γyz=+0.2、εzz=−0.2，所以两者速率比例为 +1:−1；参考率 0.0001 /ps 时分别为 +0.0001 与 −0.0001 /ps。
+stress/atom 的六列正确顺序是 xx、yy、zz、xy、xz、yz，所以 zz 用 [3]，yz 用 [6]。程序还将全局张量投影成局部 ${stressPrefix}_tn 与 ${stressPrefix}_nn；其结果是压力×体积且等于压力张量的负值。当前代表体积为${volume.description}，符号采用${stressSign==="pressure" ? "压缩为正" : "拉伸为正"}。
+units ${units} 的原生压力单位是 ${unitInfo.nativePressure}，当前 GPa 换算因子为 ${stressFactor}。${cautions.length ? "\n注意："+cautions.join("\n") : ""}`;
+    if (cautions.length) showMessage("strainMessage",cautions.join("\n"),"warn");
+  } catch(error) {
+    ["strainBasisOut","strainComponentsOut","strainRatioOut","strainScheduleOut","strainFidelityOut"].forEach(id=>$(id).textContent="—");
+    renderStrainMatrix("strainInputMatrixOut",Array.from({length:3},()=>[NaN,NaN,NaN]));
+    renderStrainMatrix("strainGlobalMatrixOut",Array.from({length:3},()=>[NaN,NaN,NaN]));
+    $("strainExplanation").textContent="请修正输入参数后重新计算。";
+    $("strainCode").textContent="请修正输入参数后重新计算。";
+    $("strainInCode").textContent="请修正输入参数后重新计算。";
+    showMessage("strainMessage",error.message);
+  }
+}
+
 function syncLayerCalculations() {
   renderMidplanePreview();
   calculateLayerCommands();
@@ -1727,6 +2107,49 @@ document.querySelectorAll("[data-copy]").forEach(button => {
   $(id).addEventListener("change", calculateDisplacement);
 });
 
+[
+  "strainCoordinateMode","strainPointBatch","strainNormalDirection","strainMagnitudeMode",
+  "strainNormal1","strainNormal2","strainNormal3","strainShear12","strainShear13","strainShear23",
+  "strainNormalLength","strainTangentialDisplacement","strainNormalChange",
+  "strainScheduleMode","strainReferenceComponent","strainReferenceRate","strainLoadTime",
+  "strainTimestep","strainDeformEvery","strainShearStyle","strainRemapMode","strainInitialBox",
+  "strainGroup","strainUnits","strainStressContribution","strainStressSign","strainVolumeMode",
+  "strainExcludedZ","strainManualVolume","strainThermoEvery","strainDataFile","strainAtomStyle","strainBoundary","strainPotentialCommands"
+].forEach(id=>{
+  $(id).addEventListener("input",calculateStrainMatrix);
+  $(id).addEventListener("change",calculateStrainMatrix);
+});
+$("calcStrain").addEventListener("click",calculateStrainMatrix);
+$("copyLayerPlaneToStrain").addEventListener("click",()=>{
+  $("strainPointBatch").value=$("layerPointBatch").value;
+  $("strainNormalDirection").value=$("layerNormalDirection").value;
+  updateFixedCoordinateBatch($("strainPointBatch"));
+  calculateStrainMatrix();
+});
+$("strainBasisExample").addEventListener("click",()=>{
+  $("strainPointBatch").value="0 0 0\n0 10 0\n-10 0 0";
+  $("strainNormalDirection").value="forward";
+  updateFixedCoordinateBatch($("strainPointBatch"));
+  calculateStrainMatrix();
+});
+$("strainExample").addEventListener("click",()=>{
+  $("strainCoordinateMode").value="global";
+  $("strainMagnitudeMode").value="matrix";
+  $("strainNormal1").value=0; $("strainNormal2").value=0; $("strainNormal3").value=-0.2;
+  $("strainShear12").value=0; $("strainShear13").value=0; $("strainShear23").value=0.2;
+  $("strainScheduleMode").value="rate";
+  $("strainReferenceComponent").value="s23";
+  $("strainReferenceRate").value=0.0001;
+  $("strainTimestep").value=0.001;
+  $("strainDeformEvery").value=1;
+  $("strainShearStyle").value="erate";
+  $("strainRemapMode").value="x";
+  $("strainUnits").value="metal";
+  $("strainStressContribution").value="virial";
+  $("strainStressSign").value="pressure";
+  calculateStrainMatrix();
+});
+
 document.querySelectorAll(".coordinate-triplet-input").forEach(input => {
   updateCalibrationCoordinateRecognition(input);
   input.addEventListener("input",()=>updateCalibrationCoordinateRecognition(input));
@@ -1745,3 +2168,5 @@ updateMidplaneControls();
 updateLayerCalibrationControls();
 updateDisplacementControls();
 syncLayerCalculations();
+updateStrainControls();
+calculateStrainMatrix();
