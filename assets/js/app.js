@@ -15,6 +15,10 @@ const FIXED_BATCH_DEFINITIONS={
     {prefix:"c",label:()=>$("planeMode")?.value==="line" ? "E" : "C",description:()=>$("planeMode")?.value==="line" ? "延伸方向 E" : "原子 C"},
     {prefix:"ovitoS",label:"S",description:"垂直切面经过点",emptyText:"采用 A 的坐标"}
   ],
+  ovitoKLBatch:[
+    {prefix:"ovitoK",label:"K",description:"法向起点"},
+    {prefix:"ovitoL",label:"L",description:"法向终点"}
+  ],
   hexaPointBatch:[
     {prefix:"ha",label:"A",description:"底面顶点 A"},
     {prefix:"hb",label:"B",description:"底面顶点 B"},
@@ -171,16 +175,24 @@ $("planeMode").addEventListener("change", () => {
   $("planePointBatch").rows=line ? 3 : 4;
   $("thirdHelp").textContent = line
     ? "第三行 E 是延伸方向向量，例如 (1,0,0)。此模式只使用前三行。"
-    : "A、B、C 须不共线。切面经过第四点 S，第四行留空时取 A。";
+    : "A、B、C 须不共线。选用 S 时，从第四行读取坐标，留空则取 A。";
   updateFixedCoordinateBatch($("planePointBatch"));
 });
 $("useInside").addEventListener("change", () => $("insideFields").classList.toggle("hidden", !$("useInside").checked));
 
+function ovitoAnchorChoice() {
+  return $("ovitoNormalMode").value==="kl" ? $("ovitoKLAnchor").value : $("ovitoEdgeAnchor").value;
+}
+
 function updateOvitoSlice(A,B,C) {
   const enabled=$("planeMode").value==="three";
+  const manual=$("ovitoNormalMode").value==="kl";
   $("ovitoEdgeField").hidden=!enabled;
+  $("ovitoEdgeOptions").hidden=manual;
+  $("ovitoKLOptions").hidden=!manual;
   $("ovitoSliceResult").hidden=!enabled;
   clearMessage("ovitoMessage");
+  $("ovitoSliceGeometry").textContent="";
   const output=$("ovitoSliceParams");
   output.textContent="";
   $("copyOvitoSlice").disabled=true;
@@ -188,13 +200,44 @@ function updateOvitoSlice(A,B,C) {
   try {
     if (![A,B,C].every(validPoint)) throw new Error("请填写 A、B、C 三个有效坐标。");
     const ab=sub(B,A), ac=sub(C,A);
-    if (norm(cross(ab,ac))<EPS) throw new Error("A、B、C 重合或共线，无法确定参考面。");
-    const edge={ab,ac,bc:sub(C,B)}[$("ovitoEdge").value];
-    const normal=normalized(edge);
-    const hasAnchor=fixedBatchLines($("planePointBatch"))[3]?.trim();
-    const anchor=hasAnchor ? readFixedBatchPoint("planePointBatch",3,"切面经过点 S") : A;
+    const areaVector=cross(ab,ac);
+    const area=norm(areaVector);
+    if (area<EPS) throw new Error("A、B、C 重合或共线，无法确定参考面。");
+    if (!Number.isFinite(area)) throw new Error("参考面坐标超出可计算范围。");
+    const planeNormal=normalized(areaVector);
+    const points={a:A,b:B,c:C};
+    let normal, directionText;
+    if (manual) {
+      const K=readFixedBatchPoint("ovitoKLBatch",0,"起点 K");
+      const L=readFixedBatchPoint("ovitoKLBatch",1,"终点 L");
+      const kl=sub(L,K);
+      if (norm(kl)<EPS) throw new Error("K、L 须为两个不同的点。");
+      normal=normalized(kl);
+      if (Math.abs(dot(normal,planeNormal))>1e-8) {
+        throw new Error("K→L 偏离 ABC 的面内方向。请调整 K 或 L，使两点到 ABC 面的有符号距离相同。");
+      }
+      points.k=K;
+      directionText="法向沿 K→L";
+    } else {
+      const edges={ab,ac,bc:sub(C,B)};
+      const referenceEdge=$("ovitoEdge");
+      const tangent=normalized(edges[referenceEdge.value]);
+      const perpendicular=$("ovitoRelation").value==="perpendicular";
+      normal=perpendicular ? normalized(cross(planeNormal,tangent)) : tangent;
+      directionText=(perpendicular ? "法向垂直于 " : "法向平行于 ")+referenceEdge.selectedOptions[0].text;
+    }
+    let anchorName=ovitoAnchorChoice();
+    if (anchorName==="s") {
+      if (fixedBatchLines($("planePointBatch"))[3]?.trim()) {
+        points.s=readFixedBatchPoint("planePointBatch",3,"切面经过点 S");
+      } else {
+        anchorName="a";
+      }
+    }
+    const anchor=points[anchorName];
     const distance=dot(normal,anchor);
     if (!validPoint(normal) || !Number.isFinite(distance)) throw new Error("坐标超出可计算范围。");
+    $("ovitoSliceGeometry").textContent=`${directionText}，切面经过 ${anchorName.toUpperCase()} = ${vectorText(anchor,12)}。`;
     output.textContent=`Normal (X, Y, Z) = ${vectorText(normal,12)}\nDistance = ${clean(distance,12)}\nSlab width = 0`;
     $("copyOvitoSlice").disabled=false;
   } catch(error) {
@@ -202,7 +245,17 @@ function updateOvitoSlice(A,B,C) {
   }
 }
 
-$("ovitoEdge").addEventListener("change",()=>updateOvitoSlice(readPoint("a"),readPoint("b"),readPoint("c")));
+function refreshOvitoSlice() {
+  updateOvitoSlice(readPoint("a"),readPoint("b"),readPoint("c"));
+}
+["ovitoNormalMode","ovitoEdge","ovitoRelation","ovitoEdgeAnchor","ovitoKLAnchor"].forEach(id=>{
+  $(id).addEventListener("change",()=>{
+    updateFixedCoordinateBatch($("planePointBatch"));
+    refreshOvitoSlice();
+  });
+});
+$("ovitoKLBatch").addEventListener("input",refreshOvitoSlice);
+$("ovitoKLBatch").addEventListener("change",refreshOvitoSlice);
 
 $("calcPlane").addEventListener("click", () => {
   clearMessage("planeMessage");
@@ -657,7 +710,10 @@ function updateFixedCoordinateBatch(input) {
     const row=document.createElement("p");
     row.className="coordinate-batch-recognition-row";
     const line=(lines[index] || "").trim();
-    if (!line) {
+    if (definition.prefix==="ovitoS" && ovitoAnchorChoice()!=="s") {
+      row.textContent=`第 4 行 · S：本次采用经过点 ${ovitoAnchorChoice().toUpperCase()}`;
+      row.dataset.state="empty";
+    } else if (!line) {
       row.textContent=`第 ${index+1} 行 · ${label}（${description}）：${definition.emptyText || "等待 XYZ"}`;
       row.dataset.state="empty";
     } else {

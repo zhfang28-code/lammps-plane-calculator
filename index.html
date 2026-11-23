@@ -238,7 +238,7 @@
       <div class="layout">
         <div class="card input-card">
           <h2>平面与边界设置</h2>
-          <p class="help form-intro">A、B、C 定义参考面，S 定位 OVITO 的垂直切面。LAMMPS 和 Atomsk 命令处理参考面。</p>
+          <p class="help form-intro">A、B、C 定义参考面。为 OVITO 选择切面法向和经过点，即可得到 Slice 参数。</p>
 
           <div id="planeDefinition" class="form-section side-nav-target">
             <h3 class="section-heading"><span class="step-badge">1</span>定义平面</h3>
@@ -258,14 +258,41 @@
 15 20 30</textarea>
             <div class="coordinate-batch-recognition" aria-live="polite"></div>
           </div>
-          <p id="thirdHelp" class="help">A、B、C 须不共线。切面经过第四点 S，第四行留空时取 A。</p>
+          <p id="thirdHelp" class="help">A、B、C 须不共线。选用 S 时，从第四行读取坐标，留空则取 A。</p>
           <div id="ovitoEdgeField" class="field">
-            <label for="ovitoEdge">OVITO 垂直切面的法向</label>
-            <select id="ovitoEdge">
-              <option value="ab">A→B</option>
-              <option value="ac">A→C</option>
-              <option value="bc">B→C</option>
+            <label for="ovitoNormalMode">OVITO 垂直切面的法向</label>
+            <select id="ovitoNormalMode">
+              <option value="edge">根据 ABC 的边确定</option>
+              <option value="kl">手动输入 K、L 两点</option>
             </select>
+            <div id="ovitoEdgeOptions">
+              <div class="row">
+                <div class="field"><label for="ovitoEdge">参考边</label><select id="ovitoEdge">
+                  <option value="ab">A→B</option><option value="ac">A→C</option><option value="bc">B→C</option>
+                </select></div>
+                <div class="field"><label for="ovitoRelation">切面法向与参考边的关系</label><select id="ovitoRelation">
+                  <option value="parallel">平行</option><option value="perpendicular">垂直（在 ABC 面内）</option>
+                </select></div>
+              </div>
+              <label for="ovitoEdgeAnchor">切面经过点</label>
+              <select id="ovitoEdgeAnchor">
+                <option value="s">S（第四行，留空取 A）</option>
+                <option value="a">A</option><option value="b">B</option><option value="c">C</option>
+              </select>
+            </div>
+            <div id="ovitoKLOptions" hidden>
+              <div class="coordinate-batch-entry">
+                <label for="ovitoKLBatch">依次粘贴 K、L 两行坐标</label>
+                <p class="help">K→L 为切面法向，方向须平行于 ABC 面。</p>
+                <textarea id="ovitoKLBatch" class="coordinate-batch-input fixed-coordinate-batch" rows="2" placeholder="每行一个 XYZ 坐标" spellcheck="false"></textarea>
+                <div class="coordinate-batch-recognition" aria-live="polite"></div>
+              </div>
+              <label for="ovitoKLAnchor">切面经过点</label>
+              <select id="ovitoKLAnchor">
+                <option value="k">K</option><option value="a">A</option><option value="b">B</option><option value="c">C</option>
+                <option value="s">S（第四行，留空取 A）</option>
+              </select>
+            </div>
           </div>
           </div>
 
@@ -345,6 +372,7 @@
           <details id="ovitoSliceResult" class="command-panel" open>
             <summary>OVITO 垂直于 ABC 的切面</summary>
             <div class="command-panel-body">
+              <p class="help" id="ovitoSliceGeometry"></p>
               <pre id="ovitoSliceParams" aria-live="polite"></pre>
               <div class="actions"><button class="secondary" id="copyOvitoSlice" data-copy="ovitoSliceParams" data-message="ovitoMessage">复制切面参数</button></div>
               <div id="ovitoMessage" class="message error"></div>
@@ -872,6 +900,6 @@
     <footer>坐标必须处于同一个周期映像中；跨周期边界时，请先使用展开坐标 xu、yu、zu。</footer>
   </main>
 
-  <script src="assets/js/app.js?v=20261123-1"></script>
+  <script src="assets/js/app.js?v=20261123-2"></script>
 </body>
 </html>
