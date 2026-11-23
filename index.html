@@ -238,7 +238,7 @@
       <div class="layout">
         <div class="card input-card">
           <h2>平面与边界设置</h2>
-          <p class="help form-intro">先用坐标确定平面，再选择 LAMMPS 要保留的平面一侧。输出名称和 Atomsk 文件设置放在下方高级选项中。</p>
+          <p class="help form-intro">A、B、C 定义参考面，S 定位 OVITO 的垂直切面。LAMMPS 和 Atomsk 命令处理参考面。</p>
 
           <div id="planeDefinition" class="form-section side-nav-target">
             <h3 class="section-heading"><span class="step-badge">1</span>定义平面</h3>
@@ -251,14 +251,22 @@
             </div>
 
           <div class="coordinate-batch-entry" aria-label="平面坐标批量输入">
-            <label for="planePointBatch">一次粘贴三行坐标</label>
-            <p class="help coordinate-batch-help">第 1 行为 A，第 2 行为 B，第 3 行为 C / E；修改后立即识别并计算。</p>
-            <textarea id="planePointBatch" class="coordinate-batch-input fixed-coordinate-batch" rows="3" autocomplete="off" spellcheck="false" placeholder="每行一个 XYZ 坐标">10 20 30
+            <label for="planePointBatch" id="planeBatchLabel">依次粘贴 A、B、C、S 四行坐标</label>
+            <textarea id="planePointBatch" class="coordinate-batch-input fixed-coordinate-batch" rows="4" autocomplete="off" spellcheck="false" placeholder="每行一个 XYZ 坐标">10 20 30
 20 20 30
-10 30 40</textarea>
+10 30 40
+15 20 30</textarea>
             <div class="coordinate-batch-recognition" aria-live="polite"></div>
           </div>
-          <p id="thirdHelp" class="help">C 是平面上的第三个原子，A、B、C 不能共线。</p>
+          <p id="thirdHelp" class="help">A、B、C 须不共线。切面经过第四点 S，第四行留空时取 A。</p>
+          <div id="ovitoEdgeField" class="field">
+            <label for="ovitoEdge">OVITO 垂直切面的法向</label>
+            <select id="ovitoEdge">
+              <option value="ab">A→B</option>
+              <option value="ac">A→C</option>
+              <option value="bc">B→C</option>
+            </select>
+          </div>
           </div>
 
           <div id="planeSideSettings" class="form-section side-nav-target">
@@ -334,6 +342,19 @@
 
         <div id="planeResultCard" class="card result-card side-nav-target">
           <h2>平面计算结果</h2>
+          <details id="ovitoSliceResult" class="command-panel" open>
+            <summary>OVITO 垂直于 ABC 的切面</summary>
+            <div class="command-panel-body">
+              <pre id="ovitoSliceParams" aria-live="polite"></pre>
+              <div class="actions"><button class="secondary" id="copyOvitoSlice" data-copy="ovitoSliceParams" data-message="ovitoMessage">复制切面参数</button></div>
+              <div id="ovitoMessage" class="message error"></div>
+              <ol>
+                <li>打开原子模型，添加 Slice，作用对象选 Particles。若已有用于确定 ABC 的 Slice，单独查看垂面时先停用它。</li>
+                <li>使用 Cartesian coordinates，将上方 Normal 的三个分量依次填入 X、Y、Z，再填入带符号的 Distance。</li>
+                <li>将 Slab width 设为 0，关闭 Create selection 即可切除一侧。勾选 Reverse orientation 可切换保留侧。</li>
+              </ol>
+            </div>
+          </details>
           <div class="result-grid">
             <div class="metric"><span>平面的单位方向 n</span><strong id="normalOut">—</strong></div>
             <div class="metric"><span>方程常数 D</span><strong id="constantOut">—</strong></div>
@@ -851,6 +872,6 @@
     <footer>坐标必须处于同一个周期映像中；跨周期边界时，请先使用展开坐标 xu、yu、zu。</footer>
   </main>
 
-  <script src="assets/js/app.js?v=20260831-1"></script>
+  <script src="assets/js/app.js?v=20261123-1"></script>
 </body>
 </html>

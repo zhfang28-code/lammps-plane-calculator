@@ -12,7 +12,8 @@ const FIXED_BATCH_DEFINITIONS={
   planePointBatch:[
     {prefix:"a",label:"A",description:"原子 A"},
     {prefix:"b",label:"B",description:"原子 B"},
-    {prefix:"c",label:()=>$("planeMode")?.value==="line" ? "E" : "C",description:()=>$("planeMode")?.value==="line" ? "延伸方向 E" : "原子 C"}
+    {prefix:"c",label:()=>$("planeMode")?.value==="line" ? "E" : "C",description:()=>$("planeMode")?.value==="line" ? "延伸方向 E" : "原子 C"},
+    {prefix:"ovitoS",label:"S",description:"垂直切面经过点",emptyText:"采用 A 的坐标"}
   ],
   hexaPointBatch:[
     {prefix:"ha",label:"A",description:"底面顶点 A"},
@@ -166,16 +167,47 @@ document.querySelectorAll(".section-sidebar").forEach(sidebar => {
 
 $("planeMode").addEventListener("change", () => {
   const line = $("planeMode").value === "line";
+  $("planeBatchLabel").textContent=line ? "依次粘贴 A、B 和延伸向量 E" : "依次粘贴 A、B、C、S 四行坐标";
+  $("planePointBatch").rows=line ? 3 : 4;
   $("thirdHelp").textContent = line
-    ? "E 是平面的延伸方向向量。例如从 X 方向观察 Y–Z 边界线时，填写 E=(1,0,0)。"
-    : "C 是平面上的第三个原子，A、B、C 不能共线。";
+    ? "第三行 E 是延伸方向向量，例如 (1,0,0)。此模式只使用前三行。"
+    : "A、B、C 须不共线。切面经过第四点 S，第四行留空时取 A。";
   updateFixedCoordinateBatch($("planePointBatch"));
 });
 $("useInside").addEventListener("change", () => $("insideFields").classList.toggle("hidden", !$("useInside").checked));
 
+function updateOvitoSlice(A,B,C) {
+  const enabled=$("planeMode").value==="three";
+  $("ovitoEdgeField").hidden=!enabled;
+  $("ovitoSliceResult").hidden=!enabled;
+  clearMessage("ovitoMessage");
+  const output=$("ovitoSliceParams");
+  output.textContent="";
+  $("copyOvitoSlice").disabled=true;
+  if (!enabled) return;
+  try {
+    if (![A,B,C].every(validPoint)) throw new Error("请填写 A、B、C 三个有效坐标。");
+    const ab=sub(B,A), ac=sub(C,A);
+    if (norm(cross(ab,ac))<EPS) throw new Error("A、B、C 重合或共线，无法确定参考面。");
+    const edge={ab,ac,bc:sub(C,B)}[$("ovitoEdge").value];
+    const normal=normalized(edge);
+    const hasAnchor=fixedBatchLines($("planePointBatch"))[3]?.trim();
+    const anchor=hasAnchor ? readFixedBatchPoint("planePointBatch",3,"切面经过点 S") : A;
+    const distance=dot(normal,anchor);
+    if (!validPoint(normal) || !Number.isFinite(distance)) throw new Error("坐标超出可计算范围。");
+    output.textContent=`Normal (X, Y, Z) = ${vectorText(normal,12)}\nDistance = ${clean(distance,12)}\nSlab width = 0`;
+    $("copyOvitoSlice").disabled=false;
+  } catch(error) {
+    showMessage("ovitoMessage",error.message);
+  }
+}
+
+$("ovitoEdge").addEventListener("change",()=>updateOvitoSlice(readPoint("a"),readPoint("b"),readPoint("c")));
+
 $("calcPlane").addEventListener("click", () => {
   clearMessage("planeMessage");
   const A=readPoint("a"), B=readPoint("b"), C=readPoint("c");
+  updateOvitoSlice(A,B,C);
   const id=$("planeId").value.trim(), precision=Number($("planePrecision").value), units=$("planeUnits").value;
   const selectedSide=$("planeSide").value;
   const atomskInput=$("atomskInput").value.trim(), atomskOutput=$("atomskOutput").value.trim();
@@ -612,7 +644,9 @@ function parseCoordinateTriplet(text,label="参考点") {
 
 function updateFixedCoordinateBatch(input) {
   if (!input) return;
-  const definitions=FIXED_BATCH_DEFINITIONS[input.id];
+  const definitions=input.id==="planePointBatch" && $("planeMode").value==="line"
+    ? FIXED_BATCH_DEFINITIONS.planePointBatch.slice(0,3)
+    : FIXED_BATCH_DEFINITIONS[input.id];
   const output=input.closest(".coordinate-batch-entry")?.querySelector(".coordinate-batch-recognition");
   if (!definitions || !output) return;
   const lines=fixedBatchLines(input);
@@ -624,7 +658,7 @@ function updateFixedCoordinateBatch(input) {
     row.className="coordinate-batch-recognition-row";
     const line=(lines[index] || "").trim();
     if (!line) {
-      row.textContent=`第 ${index+1} 行 · ${label}（${description}）：等待 XYZ`;
+      row.textContent=`第 ${index+1} 行 · ${label}（${description}）：${definition.emptyText || "等待 XYZ"}`;
       row.dataset.state="empty";
     } else {
       try {
